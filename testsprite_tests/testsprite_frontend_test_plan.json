@@ -1,0 +1,591 @@
+[
+  {
+    "id": "TC001",
+    "title": "User Registration with Valid Data",
+    "description": "Verify that a new user can successfully register using valid email and password.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the user registration page."
+      },
+      {
+        "type": "action",
+        "description": "Fill in valid email, password, and required profile details."
+      },
+      {
+        "type": "action",
+        "description": "Submit the registration form."
+      },
+      {
+        "type": "assertion",
+        "description": "Registration is successful and user is redirected to login or dashboard."
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Login with Correct Email/Password",
+    "description": "Verify login is successful using correct email and password and JWT tokens are returned.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page."
+      },
+      {
+        "type": "action",
+        "description": "Input a registered email and correct password."
+      },
+      {
+        "type": "action",
+        "description": "Click the login button."
+      },
+      {
+        "type": "assertion",
+        "description": "Login succeeds and access and refresh tokens are returned."
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Login with Incorrect Password",
+    "description": "Verify login fails when an incorrect password is provided.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page."
+      },
+      {
+        "type": "action",
+        "description": "Input a registered email and incorrect password."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to login."
+      },
+      {
+        "type": "assertion",
+        "description": "Login fails with an appropriate error message."
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Biometric Authentication Login",
+    "description": "Verify user can login through biometric authentication if enabled.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Access biometric login option on login page."
+      },
+      {
+        "type": "action",
+        "description": "Provide valid biometric authentication (e.g., fingerprint, face recognition)."
+      },
+      {
+        "type": "assertion",
+        "description": "Login succeeds with valid biometric authentication."
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Two-Factor Authentication (2FA) Workflow",
+    "description": "Verify that after login with email and password, the OTP is sent and verification allows access.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login with valid email and password in 2FA enabled account."
+      },
+      {
+        "type": "action",
+        "description": "Receive OTP on registered device/email."
+      },
+      {
+        "type": "action",
+        "description": "Submit the correct OTP for verification."
+      },
+      {
+        "type": "assertion",
+        "description": "User is authenticated successfully and given access tokens."
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Search Restaurants with Filters",
+    "description": "Verify searching restaurants by keyword and filtering by cuisine and rating returns accurate results.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to restaurant listing page."
+      },
+      {
+        "type": "action",
+        "description": "Enter a keyword in the search bar."
+      },
+      {
+        "type": "action",
+        "description": "Apply cuisine filter and rating filter."
+      },
+      {
+        "type": "assertion",
+        "description": "Listed restaurants match search criteria and filters correctly."
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Get Restaurant Details and Menu",
+    "description": "Verify that restaurant details and menu items are correctly retrieved and displayed.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Select a restaurant from the listing."
+      },
+      {
+        "type": "action",
+        "description": "Request to view restaurant details and menu."
+      },
+      {
+        "type": "assertion",
+        "description": "Restaurant details and menu items are accurately displayed."
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "Create New Order with Valid Data",
+    "description": "Verify a user can create a new order with selected restaurant, items, delivery address, and payment method.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Select restaurant and choose menu items."
+      },
+      {
+        "type": "action",
+        "description": "Provide valid delivery address."
+      },
+      {
+        "type": "action",
+        "description": "Select a payment method and confirm payment."
+      },
+      {
+        "type": "action",
+        "description": "Submit the order."
+      },
+      {
+        "type": "assertion",
+        "description": "Order is created successfully and order confirmation is received."
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "Cancel Order Before Preparation",
+    "description": "Verify user can cancel an order before it enters preparation status and receives refund if applicable.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Create a new order."
+      },
+      {
+        "type": "action",
+        "description": "Cancel the order before it enters preparation."
+      },
+      {
+        "type": "assertion",
+        "description": "Order is successfully canceled and refund is processed if payment was made."
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Track Order Status in Real-Time",
+    "description": "Verify that order status updates are received in real-time with correct status and location on the map.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Place a new order and start tracking."
+      },
+      {
+        "type": "assertion",
+        "description": "Order status updates (e.g., confirmed, preparing, out for delivery, delivered) are received promptly."
+      },
+      {
+        "type": "assertion",
+        "description": "Delivery location updates are reflected correctly on the map in the frontend."
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Payment Processing for Multiple Methods",
+    "description": "Verify payments succeed using credit card, UPI, wallet balance, and cash on delivery.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Place orders selecting each payment method respectively."
+      },
+      {
+        "type": "assertion",
+        "description": "Payments are processed successfully or acknowledged for cash on delivery."
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Wallet Balance and Refund Management",
+    "description": "Verify wallet balance retrieval accuracy and that refunds update the wallet balance correctly.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Retrieve wallet balance via API."
+      },
+      {
+        "type": "action",
+        "description": "Trigger a refund to the wallet."
+      },
+      {
+        "type": "assertion",
+        "description": "Wallet balance updates correctly reflecting the refund."
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Delivery Rider Accepts Offer and Updates Location",
+    "description": "Verify delivery rider can accept a delivery offer and update location which reflects in real-time status.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Delivery rider views pending delivery offers."
+      },
+      {
+        "type": "action",
+        "description": "Accept a delivery offer."
+      },
+      {
+        "type": "action",
+        "description": "Send location updates as GPS coordinates."
+      },
+      {
+        "type": "assertion",
+        "description": "Offer acceptance is recorded, and location updates are visible in order tracking."
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Real-Time Chat Communication",
+    "description": "Verify chat messages can be sent and received instantly between customers, restaurants, and delivery riders over WebSocket.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Establish WebSocket connection to chat endpoint."
+      },
+      {
+        "type": "action",
+        "description": "Send text message from customer to restaurant."
+      },
+      {
+        "type": "assertion",
+        "description": "Message is received instantly by restaurant and acknowledged."
+      },
+      {
+        "type": "action",
+        "description": "Reply message from restaurant to customer."
+      },
+      {
+        "type": "assertion",
+        "description": "Customer receives reply instantly."
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "WebSocket Connection Stability and Reconnection",
+    "description": "Verify WebSocket connections remain stable during intermittent network issues and automatically reconnect without data loss.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Establish WebSocket chat connection."
+      },
+      {
+        "type": "action",
+        "description": "Simulate network interruption."
+      },
+      {
+        "type": "assertion",
+        "description": "WebSocket connection drops and client attempts to reconnect automatically."
+      },
+      {
+        "type": "assertion",
+        "description": "Once reconnected, the chat resumes without message loss."
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "Admin Panel User Management Access Control",
+    "description": "Verify that admin panel user management features are accessible only by authorized admins and user data is displayed correctly.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as admin user."
+      },
+      {
+        "type": "action",
+        "description": "Access users management page."
+      },
+      {
+        "type": "assertion",
+        "description": "Admin can view, search, and manage user information."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to access admin user management as a non-admin user."
+      },
+      {
+        "type": "assertion",
+        "description": "Access is denied with appropriate error."
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "System Health Status Display",
+    "description": "Verify the admin panel can retrieve and display current system health status accurately.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to system health dashboard in admin panel."
+      },
+      {
+        "type": "assertion",
+        "description": "System health information such as uptime, error rates, and service status is displayed correctly."
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Responsive Design on Multiple Devices",
+    "description": "Verify frontend applications for customer, restaurant, delivery, and admin adapt layout and functionality correctly across desktop, tablet, and mobile devices.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Open each frontend app on desktop browser."
+      },
+      {
+        "type": "assertion",
+        "description": "UI elements render correctly and application is functional."
+      },
+      {
+        "type": "action",
+        "description": "Repeat on tablet viewport sizes."
+      },
+      {
+        "type": "assertion",
+        "description": "UI adapts and remains fully functional with no layout issues."
+      },
+      {
+        "type": "action",
+        "description": "Repeat on mobile viewport sizes."
+      },
+      {
+        "type": "assertion",
+        "description": "UI is responsive, readable, and functional on mobile devices."
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "API Endpoint Authentication and Input Validation",
+    "description": "Verify all critical API endpoints enforce JWT authentication and validate incoming inputs to prevent malformed requests and unauthorized access.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Attempt to access protected endpoints without authentication."
+      },
+      {
+        "type": "assertion",
+        "description": "Access is denied with 401 Unauthorized response."
+      },
+      {
+        "type": "action",
+        "description": "Send malformed or invalid data in request bodies."
+      },
+      {
+        "type": "assertion",
+        "description": "API returns appropriate 400 Bad Request errors with useful messages."
+      }
+    ]
+  },
+  {
+    "id": "TC020",
+    "title": "Notification Delivery for Order and System Events",
+    "description": "Verify that users receive timely notifications related to order status changes, delivery updates, and system messages through supported channels.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Trigger order status change (e.g., order confirmed, out for delivery)."
+      },
+      {
+        "type": "assertion",
+        "description": "User receives notification promptly in the frontend app."
+      },
+      {
+        "type": "action",
+        "description": "Trigger system notification (e.g., maintenance alert)."
+      },
+      {
+        "type": "assertion",
+        "description": "Notification is displayed correctly and in a timely manner."
+      }
+    ]
+  },
+  {
+    "id": "TC021",
+    "title": "Order History Retrieval",
+    "description": "Verify that users can retrieve their past orders history accurately with details and correct status.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as user with existing orders."
+      },
+      {
+        "type": "action",
+        "description": "Request order history via API or frontend."
+      },
+      {
+        "type": "assertion",
+        "description": "Complete order list with correct detail and order statuses is returned."
+      }
+    ]
+  },
+  {
+    "id": "TC022",
+    "title": "Order Status Update Propagation to Restaurant Dashboard",
+    "description": "Verify that when customers place or cancel orders, restaurant dashboards receive updates with notifications correctly.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Place a new order by customer."
+      },
+      {
+        "type": "assertion",
+        "description": "Restaurant dashboard receives new order notification."
+      },
+      {
+        "type": "action",
+        "description": "Cancel order before preparation."
+      },
+      {
+        "type": "assertion",
+        "description": "Restaurant dashboard is updated with cancellation status."
+      }
+    ]
+  },
+  {
+    "id": "TC023",
+    "title": "Concurrent Order Placement Handling",
+    "description": "Verify system reliably handles multiple concurrent order placements without data corruption or loss.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Simultaneously submit multiple order creation requests from different users."
+      },
+      {
+        "type": "assertion",
+        "description": "All valid orders are processed correctly without conflicts or errors."
+      }
+    ]
+  },
+  {
+    "id": "TC024",
+    "title": "Session Management and Token Refresh",
+    "description": "Verify that JWT refresh token endpoint works correctly extending session and access token expiry.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login and obtain access and refresh tokens."
+      },
+      {
+        "type": "action",
+        "description": "Use refresh token to request new access token."
+      },
+      {
+        "type": "assertion",
+        "description": "New access token is issued and valid for subsequent API calls."
+      }
+    ]
+  },
+  {
+    "id": "TC025",
+    "title": "OAuth Login via Google/Apple/Facebook",
+    "description": "Verify users can login using OAuth providers and receive JWT tokens correctly.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Select OAuth login option (e.g., Google)."
+      },
+      {
+        "type": "action",
+        "description": "Complete OAuth authentication flow."
+      },
+      {
+        "type": "assertion",
+        "description": "User is authenticated and JWT tokens are returned."
+      }
+    ]
+  }
+]

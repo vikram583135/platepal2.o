@@ -1,0 +1,109 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e6]:
+      - link "PlatePal" [ref=e7] [cursor=pointer]:
+        - /url: /
+      - generic [ref=e8]:
+        - link "Restaurants" [ref=e9] [cursor=pointer]:
+          - /url: /restaurants
+        - link "Offers" [ref=e10] [cursor=pointer]:
+          - /url: /offers
+        - link "Wallet" [ref=e11] [cursor=pointer]:
+          - /url: /wallet
+        - link "Membership" [ref=e12] [cursor=pointer]:
+          - /url: /membership
+        - link "Rewards" [ref=e13] [cursor=pointer]:
+          - /url: /rewards
+        - link "Support" [ref=e14] [cursor=pointer]:
+          - /url: /support
+        - link "Login" [ref=e15] [cursor=pointer]:
+          - /url: /login
+          - button "Login" [ref=e16]
+        - link "Sign Up" [ref=e17] [cursor=pointer]:
+          - /url: /signup
+          - button "Sign Up" [ref=e18]
+  - main [ref=e19]:
+    - generic [ref=e22]:
+      - generic [ref=e24]:
+        - heading "Order Food Online" [level=1] [ref=e25]
+        - paragraph [ref=e26]: Discover amazing restaurants near you
+        - generic [ref=e27]:
+          - generic [ref=e28]:
+            - generic [ref=e30]:
+              - img [ref=e31]
+              - textbox "Enter your location" [ref=e34] [cursor=pointer]: Mumbai, Maharashtra
+              - button [ref=e35] [cursor=pointer]:
+                - img [ref=e36]
+            - generic [ref=e38]:
+              - img [ref=e39]
+              - textbox "Search for food, restaurants, dishes..." [ref=e42]
+            - button "Search" [ref=e43] [cursor=pointer]
+          - button "Pick on Map" [ref=e45] [cursor=pointer]:
+            - img [ref=e46]
+            - text: Pick on Map
+      - generic [ref=e50]:
+        - img [ref=e51]
+        - heading "Trending Dishes" [level=2] [ref=e54]
+      - generic [ref=e78]:
+        - generic [ref=e79]:
+          - img [ref=e81]
+          - heading "Search" [level=3] [ref=e84]
+          - paragraph [ref=e85]: Find your favorite restaurants and cuisines
+        - generic [ref=e86]:
+          - img [ref=e88]
+          - heading "Order" [level=3] [ref=e91]
+          - paragraph [ref=e92]: Place your order with just a few clicks
+        - generic [ref=e93]:
+          - img [ref=e95]
+          - heading "Track" [level=3] [ref=e98]
+          - paragraph [ref=e99]: Track your order in real-time
+      - generic [ref=e101]:
+        - heading "Ready to order?" [level=2] [ref=e102]
+        - paragraph [ref=e103]: Browse our selection of restaurants
+        - link "Browse Restaurants" [ref=e104] [cursor=pointer]:
+          - /url: /restaurants
+          - button "Browse Restaurants" [ref=e105]
+  - contentinfo [ref=e106]:
+    - generic [ref=e107]:
+      - generic [ref=e108]:
+        - generic [ref=e109]:
+          - heading "PlatePal" [level=3] [ref=e110]
+          - paragraph [ref=e111]: Order food online from your favorite restaurants.
+        - generic [ref=e112]:
+          - heading "Company" [level=4] [ref=e113]
+          - list [ref=e114]:
+            - listitem [ref=e115]:
+              - link "About" [ref=e116] [cursor=pointer]:
+                - /url: "#"
+            - listitem [ref=e117]:
+              - link "Careers" [ref=e118] [cursor=pointer]:
+                - /url: "#"
+            - listitem [ref=e119]:
+              - link "Contact" [ref=e120] [cursor=pointer]:
+                - /url: "#"
+        - generic [ref=e121]:
+          - heading "Support" [level=4] [ref=e122]
+          - list [ref=e123]:
+            - listitem [ref=e124]:
+              - link "Help Center" [ref=e125] [cursor=pointer]:
+                - /url: "#"
+            - listitem [ref=e126]:
+              - link "FAQs" [ref=e127] [cursor=pointer]:
+                - /url: "#"
+            - listitem [ref=e128]:
+              - link "Terms" [ref=e129] [cursor=pointer]:
+                - /url: "#"
+        - generic [ref=e130]:
+          - heading "Follow Us" [level=4] [ref=e131]
+          - generic [ref=e132]:
+            - link "Facebook" [ref=e133] [cursor=pointer]:
+              - /url: "#"
+            - link "Twitter" [ref=e134] [cursor=pointer]:
+              - /url: "#"
+            - link "Instagram" [ref=e135] [cursor=pointer]:
+              - /url: "#"
+      - paragraph [ref=e137]: © 2024 PlatePal. All rights reserved.
+```

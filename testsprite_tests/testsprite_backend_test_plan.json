@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "login with email and password",
+    "description": "Test the /api/auth/token/ endpoint to verify successful login using valid email and password credentials, and ensure that access and refresh tokens are returned correctly."
+  },
+  {
+    "id": "TC002",
+    "title": "refresh access token",
+    "description": "Test the /api/auth/token/refresh/ endpoint to verify that a valid refresh token can be used to obtain a new access token successfully."
+  },
+  {
+    "id": "TC003",
+    "title": "login with biometric authentication",
+    "description": "Test the /api/auth/biometric-auth/login/ endpoint to verify that users can login successfully using biometric authentication methods."
+  },
+  {
+    "id": "TC004",
+    "title": "send otp for two factor authentication",
+    "description": "Test the /api/auth/otp/send/ endpoint to verify that an OTP is sent correctly for two-factor authentication purposes."
+  },
+  {
+    "id": "TC005",
+    "title": "verify otp",
+    "description": "Test the /api/auth/otp/verify/ endpoint to verify that the OTP provided by the user is validated correctly for two-factor authentication."
+  },
+  {
+    "id": "TC006",
+    "title": "list all restaurants with filters",
+    "description": "Test the /api/restaurants/restaurants/ endpoint to verify that it returns a list of restaurants filtered correctly by search keyword, cuisine type, and rating."
+  },
+  {
+    "id": "TC007",
+    "title": "get restaurant details",
+    "description": "Test the /api/restaurants/restaurants/{id}/ endpoint to verify that it returns detailed information for a specific restaurant identified by id."
+  },
+  {
+    "id": "TC008",
+    "title": "create new order",
+    "description": "Test the /api/orders/orders/ POST endpoint to verify that a user can create a new order by providing valid restaurant id, items, and delivery address id."
+  },
+  {
+    "id": "TC009",
+    "title": "process payment",
+    "description": "Test the /api/payments/payments/ endpoint to verify that payments can be processed successfully using supported payment methods including credit card, UPI, wallet, and cash on delivery."
+  },
+  {
+    "id": "TC010",
+    "title": "list user notifications",
+    "description": "Test the /api/notifications/ GET endpoint to verify that it returns the list of notifications for the authenticated user correctly."
+  }
+]
