@@ -33,10 +33,15 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
         from apps.orders.models import Order
         order_id = validated_data.pop('order_id')
         order = Order.objects.get(id=order_id)
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if user is None or getattr(order, 'customer', None) != user:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'order_id': 'Not authorized to create payment for this order'})
         
         payment = Payment.objects.create(
             order=order,
-            user=self.context['request'].user,
+            user=user,
             amount=order.total_amount,
             method_type=validated_data.get('method_type', 'CARD'),
             status=Payment.Status.PROCESSING

@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'apps.analytics',
     'apps.inventory',
     'apps.admin_panel',
+    'apps.events',
 ]
 
 MIDDLEWARE = [
@@ -67,6 +68,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'apps.accounts.middleware.IdempotencyMiddleware',
     'apps.accounts.middleware.AuditLogMiddleware',
     'apps.accounts.middleware.RateLimitMiddleware',
     'apps.accounts.middleware.BotDetectionMiddleware',
@@ -176,12 +178,12 @@ SIMPLE_JWT = {
 
 # CORS Settings
 DEFAULT_CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3020',  # Customer app
-    'http://localhost:3021',  # Restaurant app
-    'http://localhost:3022',  # Delivery app
-    'http://localhost:3023',  # Admin app
-    'http://localhost:3024',  # Shared dev port (Cursor default)
-    'http://localhost:3000',  # Shared dev ports
+    'http://localhost:3020',
+    'http://localhost:3021',
+    'http://localhost:3022',
+    'http://localhost:3023',
+    'http://localhost:3024',
+    'http://localhost:3000',
     'http://localhost:5173',
     'http://127.0.0.1:3020',
     'http://127.0.0.1:3021',
@@ -193,8 +195,9 @@ DEFAULT_CORS_ALLOWED_ORIGINS = [
 ]
 
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
-# Ensure essential dev origins are always included while preserving custom env entries
-CORS_ALLOWED_ORIGINS = list(dict.fromkeys(CORS_ALLOWED_ORIGINS + DEFAULT_CORS_ALLOWED_ORIGINS))
+# Include dev origins only in DEBUG to avoid exposing in production
+_dev_origins = DEFAULT_CORS_ALLOWED_ORIGINS if DEBUG else []
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys(CORS_ALLOWED_ORIGINS + _dev_origins))
 CORS_ALLOW_CREDENTIALS = True
 
 # Channels (WebSocket)

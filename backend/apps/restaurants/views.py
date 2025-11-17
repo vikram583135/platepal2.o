@@ -875,6 +875,37 @@ class MenuItemViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAuthenticated(), IsRestaurantOwner()]
         return [AllowAny()]
+    
+    @transaction.atomic
+    def perform_create(self, serializer):
+        menu_item = serializer.save()
+        self._broadcast_menu_updated(menu_item)
+    
+    @transaction.atomic
+    def perform_update(self, serializer):
+        menu_item = serializer.save()
+        self._broadcast_menu_updated(menu_item)
+    
+    def _broadcast_menu_updated(self, menu_item):
+        """Broadcast menu.updated event"""
+        from apps.events.broadcast import EventBroadcastService
+        from apps.restaurants.serializers import MenuItemSerializer
+        
+        menu_data = MenuItemSerializer(menu_item, context={'request': self.request}).data
+        restaurant = menu_item.restaurant
+        
+        # Broadcast to restaurant channel
+        EventBroadcastService.broadcast_to_restaurant(
+            restaurant_id=restaurant.id,
+            event_type='menu.updated',
+            aggregate_type='MenuItem',
+            aggregate_id=str(menu_item.id),
+            payload=menu_data,
+        )
+        
+        # Broadcast to subscribed customers (in production, maintain customer subscriptions)
+        # For now, broadcast to all customers (would be optimized in production)
+        # EventBroadcastService.broadcast_to_customer() would be called for subscribed customers
 
 
 class ItemModifierViewSet(viewsets.ModelViewSet):

@@ -15,13 +15,14 @@ class WebSocketClient {
   private reconnectDelay = 1000
   private isConnecting = false
   private shouldReconnect = true
+  private lastEventId: string | null = null
 
   constructor(url: string, token: string) {
     this.url = url
     this.token = token
   }
 
-  connect(): Promise<void> {
+  connect(sinceEventId?: string): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
         resolve()
@@ -29,7 +30,13 @@ class WebSocketClient {
       }
 
       this.isConnecting = true
-      const wsUrl = `${this.url}?token=${this.token}`
+      // Use sinceEventId if provided, otherwise use stored lastEventId
+      const eventIdParam = sinceEventId || this.lastEventId || undefined
+      const params = new URLSearchParams({ token: this.token })
+      if (eventIdParam) {
+        params.append('since_event_id', eventIdParam)
+      }
+      const wsUrl = `${this.url}?${params.toString()}`
       this.ws = new WebSocket(wsUrl)
 
       this.ws.onopen = () => {
@@ -42,6 +49,10 @@ class WebSocketClient {
       this.ws.onmessage = (event) => {
         try {
           const data: WebSocketEvent = JSON.parse(event.data)
+          // Store last event ID for reconnection replay
+          if (data.event_id) {
+            this.lastEventId = data.event_id
+          }
           this.handleEvent(data)
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error)
@@ -56,6 +67,7 @@ class WebSocketClient {
       this.ws.onclose = () => {
         this.isConnecting = false
         if (this.shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
+          // Reconnect with last event ID to replay missed events
           this.scheduleReconnect()
         }
       }
@@ -68,9 +80,14 @@ class WebSocketClient {
 
     setTimeout(() => {
       if (this.shouldReconnect) {
-        this.connect().catch(console.error)
+        // Reconnect with last event ID to replay missed events
+        this.connect(this.lastEventId || undefined).catch(console.error)
       }
     }, delay)
+  }
+
+  getLastEventId(): string | null {
+    return this.lastEventId
   }
 
   private handleEvent(event: WebSocketEvent) {
@@ -132,9 +149,9 @@ export function getWebSocketUrl(
     case 'customer':
       return `${baseUrl}/customer/${id}`
     case 'restaurant':
-      return `${baseUrl}/orders/${id}`
+      return `${baseUrl}/orders/${id}` // Restaurant channel uses restaurant_id
     case 'delivery':
-      return `${baseUrl}/delivery/${id}`
+      return `${baseUrl}/delivery/${id}` // Delivery channel uses rider_id
     case 'admin':
       return `${baseUrl}/admin`
     case 'chat':

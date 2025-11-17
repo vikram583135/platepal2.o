@@ -110,20 +110,20 @@
   ],
   "apiEndpoints": {
     "auth": {
-      "login": "POST /api/accounts/login/",
-      "register": "POST /api/accounts/register/",
-      "refresh": "POST /api/accounts/token/refresh/"
+      "login": "POST /api/auth/token/",
+      "register": "POST /api/auth/users/register/",
+      "refresh": "POST /api/auth/token/refresh/"
     },
     "restaurants": {
-      "list": "GET /api/restaurants/",
-      "detail": "GET /api/restaurants/{id}/",
-      "menu": "GET /api/restaurants/{id}/menu/"
+      "list": "GET /api/restaurants/restaurants/",
+      "detail": "GET /api/restaurants/restaurants/{id}/",
+      "menu": "GET /api/restaurants/items/?restaurant_id={id}"
     },
     "orders": {
-      "create": "POST /api/orders/",
-      "list": "GET /api/orders/",
-      "detail": "GET /api/orders/{id}/",
-      "track": "GET /api/orders/{id}/track/"
+      "create": "POST /api/orders/orders/",
+      "list": "GET /api/orders/orders/",
+      "detail": "GET /api/orders/orders/{id}/",
+      "track": "GET /api/orders/orders/{id}/" 
     }
   },
   "environment": {

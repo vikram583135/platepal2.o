@@ -27,6 +27,8 @@ from .serializers import (
 from apps.accounts.permissions import IsOwnerOrAdmin
 from apps.accounts.models import User
 from apps.orders.models import Order
+from apps.events.broadcast import EventBroadcastService
+from django.db import transaction
 
 channel_layer = get_channel_layer()
 
@@ -123,6 +125,7 @@ class DeliveryViewSet(viewsets.ModelViewSet):
         return Response(DeliverySerializer(delivery).data)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    @transaction.atomic
     def pickup(self, request, pk=None):
         """Rider picks up order"""
         delivery = self.get_object()
@@ -133,6 +136,7 @@ class DeliveryViewSet(viewsets.ModelViewSet):
         if delivery.status not in [Delivery.Status.ACCEPTED, Delivery.Status.ARRIVED_AT_PICKUP]:
             return Response({'error': 'Cannot pick up at this stage'}, status=status.HTTP_400_BAD_REQUEST)
         
+        previous_status = delivery.status
         delivery.status = Delivery.Status.PICKED_UP
         delivery.actual_pickup_time = timezone.now()
         
@@ -141,11 +145,40 @@ class DeliveryViewSet(viewsets.ModelViewSet):
         delivery.save()
         
         delivery.order.status = Order.Status.PICKED_UP
+        delivery.order.status = Order.Status.OUT_FOR_DELIVERY  # Update to out for delivery
         delivery.order.picked_up_at = timezone.now()
         delivery.order.save()
         
-        self.broadcast_order_update(delivery.order)
-        return Response(DeliverySerializer(delivery).data)
+        # Create delivery.status_changed event
+        delivery_data = DeliverySerializer(delivery).data
+        EventBroadcastService.broadcast_to_multiple(
+            event_type='delivery.status_changed',
+            aggregate_type='Delivery',
+            aggregate_id=str(delivery.id),
+            payload={
+                **delivery_data,
+                'status': delivery.status,
+                'previous_status': previous_status,
+            },
+            customer_id=delivery.order.customer.id,
+            restaurant_id=delivery.order.restaurant.id,
+            rider_id=request.user.id,
+            include_admin=True,
+        )
+        
+        # Also broadcast order.updated
+        from apps.orders.views import OrderViewSet
+        OrderViewSet.broadcast_order_updated = lambda self, order, event_type='order.updated', include_internal=False: EventBroadcastService.broadcast_to_multiple(
+            event_type=event_type,
+            aggregate_type='Order',
+            aggregate_id=str(order.id),
+            payload={},
+            customer_id=order.customer.id,
+            restaurant_id=order.restaurant.id,
+            include_admin=True,
+        )
+        
+        return Response(delivery_data)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def pause(self, request, pk=None):
@@ -186,6 +219,7 @@ class DeliveryViewSet(viewsets.ModelViewSet):
         return Response(DeliverySerializer(delivery).data)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    @transaction.atomic
     def complete(self, request, pk=None):
         """Rider completes delivery"""
         delivery = self.get_object()
@@ -202,6 +236,7 @@ class DeliveryViewSet(viewsets.ModelViewSet):
             if not otp or otp != delivery.delivery_otp:
                 return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
         
+        previous_status = delivery.status
         delivery.status = Delivery.Status.DELIVERED
         delivery.actual_delivery_time = timezone.now()
         
@@ -222,8 +257,31 @@ class DeliveryViewSet(viewsets.ModelViewSet):
         # Award reward points when order is delivered
         self.award_reward_points(delivery.order)
         
-        self.broadcast_order_update(delivery.order)
-        return Response(DeliverySerializer(delivery).data)
+        # Create delivery.status_changed and order.completed events
+        from apps.events.broadcast import EventBroadcastService
+        delivery_data = DeliverySerializer(delivery).data
+        EventBroadcastService.broadcast_to_multiple(
+            event_type='delivery.status_changed',
+            aggregate_type='Delivery',
+            aggregate_id=str(delivery.id),
+            payload={
+                **delivery_data,
+                'status': delivery.status,
+                'previous_status': previous_status,
+            },
+            customer_id=delivery.order.customer.id,
+            restaurant_id=delivery.order.restaurant.id,
+            rider_id=request.user.id,
+            include_admin=True,
+        )
+        
+        # Broadcast order.completed using OrderViewSet
+        from apps.orders.views import OrderViewSet
+        order_viewset = OrderViewSet()
+        order_viewset.request = request
+        order_viewset.broadcast_order_updated(delivery.order, event_type='order.completed', include_internal=True)
+        
+        return Response(delivery_data)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def unable_to_deliver(self, request, pk=None):
@@ -357,6 +415,9 @@ class RiderLocationViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         from decimal import Decimal
         import math
+        from .services import calculate_distance, queue_offline_action
+        from .models import OfflineAction, RiderShift, RiderSettings
+        from apps.events.broadcast import EventBroadcastService
         
         location = serializer.save(rider=self.request.user)
         
@@ -364,6 +425,38 @@ class RiderLocationViewSet(viewsets.ModelViewSet):
         settings, _ = RiderSettings.objects.get_or_create(rider=self.request.user)
         location.location_mode = settings.location_mode
         location.save()
+        
+        # Check privacy setting: only share location during shift
+        if settings.share_location_during_shift_only:
+            # Check if rider has active shift
+            from .models import RiderShift
+            active_shift = RiderShift.objects.filter(
+                rider=self.request.user,
+                status__in=[RiderShift.Status.ACTIVE, RiderShift.Status.PAUSED]
+            ).first()
+            
+            if not active_shift:
+                # Rider not in active shift, don't broadcast location
+                # Queue location update for offline sync
+                location.is_offline_sync = True
+                location.offline_queued_at = timezone.now()
+                location.save()
+                
+                # Queue offline action for location update
+                queue_offline_action(
+                    rider=self.request.user,
+                    action_type=OfflineAction.ActionType.UPDATE_LOCATION,
+                    action_data={
+                        'latitude': float(location.latitude),
+                        'longitude': float(location.longitude),
+                        'heading': float(location.heading) if location.heading else None,
+                        'speed': float(location.speed) if location.speed else None,
+                        'accuracy': float(location.accuracy) if location.accuracy else None,
+                        'timestamp': location.created_at.isoformat(),
+                    },
+                    resource_id=str(location.id)
+                )
+                return
         
         # Determine if rider is moving (based on speed)
         is_moving = False
@@ -382,7 +475,7 @@ class RiderLocationViewSet(viewsets.ModelViewSet):
         for delivery in active_deliveries:
             # Check pickup zone
             if delivery.pickup_latitude and delivery.pickup_longitude:
-                distance = self.calculate_distance(
+                distance = calculate_distance(
                     float(location.latitude),
                     float(location.longitude),
                     float(delivery.pickup_latitude),
@@ -400,11 +493,21 @@ class RiderLocationViewSet(viewsets.ModelViewSet):
                         if delivery.status == Delivery.Status.ACCEPTED:
                             delivery.status = Delivery.Status.ARRIVED_AT_PICKUP
                             delivery.save()
-                            self.broadcast_order_update(delivery.order)
+                            # Broadcast via EventBroadcastService
+                            EventBroadcastService.broadcast_to_multiple(
+                                event_type='delivery.status_changed',
+                                aggregate_type='Delivery',
+                                aggregate_id=str(delivery.id),
+                                payload={'status': delivery.status},
+                                customer_id=delivery.order.customer.id,
+                                restaurant_id=delivery.order.restaurant.id,
+                                rider_id=self.request.user.id,
+                                include_admin=True,
+                            )
             
             # Check drop zone
             if delivery.delivery_latitude and delivery.delivery_longitude:
-                distance = self.calculate_distance(
+                distance = calculate_distance(
                     float(location.latitude),
                     float(location.longitude),
                     float(delivery.delivery_latitude),
@@ -418,43 +521,95 @@ class RiderLocationViewSet(viewsets.ModelViewSet):
                         location.drop_zone_entered_at = timezone.now()
                         location.save()
         
-        # Broadcast location update
+        # Broadcast rider_location event to order channels
         for delivery in active_deliveries:
-            import uuid
-            async_to_sync(channel_layer.group_send)(
-                f'customer_{delivery.order.customer.id}',
-                {
-                    'type': 'rider_location',
-                    'data': {
-                        'delivery_id': delivery.id,
-                        'order_id': delivery.order.id,
-                        'location': {
-                            'latitude': float(location.latitude),
-                            'longitude': float(location.longitude),
-                            'heading': float(location.heading) if location.heading else None,
-                            'speed': float(location.speed) if location.speed else None,
-                        }
+            # Calculate ETA based on current location
+            from .services import calculate_eta
+            eta_minutes = None
+            if delivery.delivery_latitude and delivery.delivery_longitude:
+                distance_km = calculate_distance(
+                    float(location.latitude),
+                    float(location.longitude),
+                    float(delivery.delivery_latitude),
+                    float(delivery.delivery_longitude)
+                )
+                eta_minutes = calculate_eta(distance_km)
+            
+            # Broadcast rider location update
+            EventBroadcastService.broadcast_to_customer(
+                customer_id=delivery.order.customer.id,
+                event_type='rider_location',
+                aggregate_type='Delivery',
+                aggregate_id=str(delivery.id),
+                payload={
+                    'delivery_id': delivery.id,
+                    'order_id': delivery.order.id,
+                    'rider_id': self.request.user.id,
+                    'location': {
+                        'latitude': float(location.latitude),
+                        'longitude': float(location.longitude),
+                        'heading': float(location.heading) if location.heading else None,
+                        'speed': float(location.speed) if location.speed else None,
+                        'accuracy': float(location.accuracy) if location.accuracy else None,
                     },
-                    'event_id': str(uuid.uuid4()),
+                    'eta_minutes': eta_minutes,
+                    'timestamp': location.created_at.isoformat(),
+                }
+            )
+            
+            # Also broadcast to restaurant for ETA updates
+            EventBroadcastService.broadcast_to_restaurant(
+                restaurant_id=delivery.order.restaurant.id,
+                event_type='rider_location',
+                aggregate_type='Delivery',
+                aggregate_id=str(delivery.id),
+                payload={
+                    'delivery_id': delivery.id,
+                    'order_id': delivery.order.id,
+                    'eta_minutes': eta_minutes,
+                    'timestamp': location.created_at.isoformat(),
                 }
             )
     
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def update_location(self, request):
+        """POST /delivery/{rider_id}/location - Update rider location (alternative endpoint)"""
+        if request.user.role != User.Role.DELIVERY:
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
+        accuracy = request.data.get('accuracy')
+        heading = request.data.get('heading')
+        speed = request.data.get('speed')
+        battery_level = request.data.get('battery_level')
+        
+        if not latitude or not longitude:
+            return Response({'error': 'latitude and longitude are required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Create location record using perform_create logic above
+        serializer = self.get_serializer(data={
+            'rider': request.user.id,
+            'latitude': latitude,
+            'longitude': longitude,
+            'accuracy': accuracy,
+            'heading': heading,
+            'speed': speed,
+            'battery_level': battery_level,
+        })
+        
+        if serializer.is_valid():
+            location = serializer.save(rider=request.user)
+            # perform_create will handle broadcasting
+            self.perform_create(serializer)
+            return Response(self.get_serializer(location).data, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
     def calculate_distance(self, lat1, lon1, lat2, lon2):
-        """Calculate distance between two points in kilometers using Haversine formula"""
-        import math
-        R = 6371  # Earth's radius in km
-        
-        dlat = math.radians(lat2 - lat1)
-        dlon = math.radians(lon2 - lon1)
-        
-        a = math.sin(dlat/2) * math.sin(dlat/2) + \
-            math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * \
-            math.sin(dlon/2) * math.sin(dlon/2)
-        
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-        distance = R * c
-        
-        return distance
+        """Calculate distance between two points"""
+        from .services import calculate_distance as calc_dist
+        return calc_dist(lat1, lon1, lat2, lon2)
 
 
 class RiderEarningsViewSet(viewsets.ReadOnlyModelViewSet):
@@ -864,9 +1019,11 @@ class DeliveryOfferViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
     
     @action(detail=True, methods=['post'])
+    @transaction.atomic
     def accept(self, request, pk=None):
-        """Accept a delivery offer"""
-        offer = self.get_object()
+        """Accept a delivery offer with database locking to prevent race conditions"""
+        # Use SELECT FOR UPDATE to lock the offer row
+        offer = DeliveryOffer.objects.select_for_update().get(pk=pk)
         
         # Check if offer is valid
         if offer.status != DeliveryOffer.Status.SENT or offer.rider != request.user:
@@ -899,17 +1056,46 @@ class DeliveryOfferViewSet(viewsets.ModelViewSet):
         
         # Update order status
         delivery.order.status = Order.Status.ASSIGNED
+        delivery.order.courier = request.user
         delivery.order.save()
         
-        # Broadcast update
-        self.broadcast_to_rider(request.user.id, 'offer_accepted', DeliverySerializer(delivery).data)
+        # Create delivery.assigned event and broadcast
+        delivery_data = DeliverySerializer(delivery).data
+        EventBroadcastService.broadcast_to_multiple(
+            event_type='delivery.assigned',
+            aggregate_type='Delivery',
+            aggregate_id=str(delivery.id),
+            payload=delivery_data,
+            customer_id=delivery.order.customer.id,
+            restaurant_id=delivery.order.restaurant.id,
+            rider_id=request.user.id,
+            include_admin=True,
+            metadata={
+                'user_id': request.user.id,
+                'offer_id': offer.id,
+            }
+        )
+        
+        # Also broadcast job_offer accepted to rider
+        EventBroadcastService.broadcast_to_rider(
+            rider_id=request.user.id,
+            event_type='offer.accepted',
+            aggregate_type='DeliveryOffer',
+            aggregate_id=str(offer.id),
+            payload={
+                'offer_id': offer.id,
+                'delivery_id': delivery.id,
+                'status': 'ACCEPTED',
+            }
+        )
         
         serializer = self.get_serializer(offer)
         return Response(serializer.data)
     
     @action(detail=True, methods=['post'])
+    @transaction.atomic
     def decline(self, request, pk=None):
-        """Decline a delivery offer"""
+        """Decline a delivery offer and trigger re-assignment if needed"""
         offer = self.get_object()
         
         if offer.status != DeliveryOffer.Status.SENT or offer.rider != request.user:
@@ -923,6 +1109,56 @@ class DeliveryOfferViewSet(viewsets.ModelViewSet):
         offer.decline_reason = decline_reason
         offer.decline_code = decline_code
         offer.save()
+        
+        # Check if all offers for this delivery have been declined
+        delivery = offer.delivery
+        active_offers_count = DeliveryOffer.objects.filter(
+            delivery=delivery,
+            status__in=[DeliveryOffer.Status.SENT, DeliveryOffer.Status.ACCEPTED]
+        ).count()
+        
+        # If no active offers remain, trigger re-assignment or escalation
+        if active_offers_count == 0:
+            # Check how many times we've tried to assign
+            total_offers = DeliveryOffer.objects.filter(delivery=delivery).count()
+            
+            if total_offers >= 5:  # Escalate to admin after 5 declined offers
+                from apps.events.broadcast import EventBroadcastService
+                EventBroadcastService.broadcast_to_admin(
+                    event_type='delivery.escalation',
+                    aggregate_type='Delivery',
+                    aggregate_id=str(delivery.id),
+                    payload={
+                        'delivery_id': delivery.id,
+                        'order_id': delivery.order.id,
+                        'reason': 'no_rider_accepted',
+                        'total_offers_sent': total_offers,
+                    }
+                )
+            else:
+                # Re-attempt rider assignment
+                try:
+                    from apps.deliveries.services_assignment import RiderAssignmentService
+                    RiderAssignmentService._reassign_rider_for_delivery(delivery)
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Failed to re-assign rider for delivery {delivery.id}: {str(e)}")
+        
+        # Broadcast offer.declined event
+        from apps.events.broadcast import EventBroadcastService
+        EventBroadcastService.broadcast_to_rider(
+            rider_id=request.user.id,
+            event_type='offer.declined',
+            aggregate_type='DeliveryOffer',
+            aggregate_id=str(offer.id),
+            payload={
+                'offer_id': offer.id,
+                'delivery_id': delivery.id,
+                'status': 'DECLINED',
+                'reason': decline_reason,
+            }
+        )
         
         serializer = self.get_serializer(offer)
         return Response(serializer.data)

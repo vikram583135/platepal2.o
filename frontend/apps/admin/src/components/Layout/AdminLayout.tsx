@@ -1,5 +1,6 @@
 import { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useAdminSocket } from '../../hooks/useAdminSocket'
 import { 
   LayoutDashboard, Users, ShoppingBag, CreditCard, 
   Building2, Truck, Settings, FileText, BarChart3,
@@ -12,6 +13,9 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const location = useLocation()
+  
+  // Initialize WebSocket connection for admin
+  useAdminSocket()
 
   const menuItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },

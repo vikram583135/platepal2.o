@@ -25,15 +25,52 @@ export function useRestaurantSocket(restaurantId?: number | null) {
       queryClient.invalidateQueries({ queryKey: ['restaurant-orders', restaurantId] })
     }
 
-    socket.on('order_created', invalidateOrders)
+    // Order lifecycle events
+    socket.on('order_created', (event: any) => {
+      invalidateOrders()
+      // Show notification for new order
+      if (event.data?.payload) {
+        console.log('New order received:', event.data.payload)
+      }
+    })
+    socket.on('order_accepted', invalidateOrders)
+    socket.on('order_rejected', invalidateOrders)
     socket.on('order_updated', invalidateOrders)
-    socket.on('restaurant_alert', () => {
-      queryClient.invalidateQueries({ queryKey: ['restaurant-dashboard', restaurantId] })
-      queryClient.invalidateQueries({ queryKey: ['restaurant-alerts', restaurantId] })
+    socket.on('order_completed', invalidateOrders)
+    
+    // Menu and inventory events
+    socket.on('menu_updated', () => {
+      queryClient.invalidateQueries({ queryKey: ['menu', restaurantId] })
+      queryClient.invalidateQueries({ queryKey: ['restaurant-menu', restaurantId] })
     })
     socket.on('inventory_low', () => {
       queryClient.invalidateQueries({ queryKey: ['inventory', restaurantId] })
       queryClient.invalidateQueries({ queryKey: ['restaurant-dashboard', restaurantId] })
+    })
+    socket.on('item_sold_out', () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory', restaurantId] })
+      queryClient.invalidateQueries({ queryKey: ['menu', restaurantId] })
+    })
+    socket.on('inventory_restocked', () => {
+      queryClient.invalidateQueries({ queryKey: ['inventory', restaurantId] })
+      queryClient.invalidateQueries({ queryKey: ['menu', restaurantId] })
+    })
+    
+    // Delivery events
+    socket.on('delivery_assigned', invalidateOrders)
+    socket.on('delivery_status_changed', invalidateOrders)
+    socket.on('rider_location', () => {
+      queryClient.invalidateQueries({ queryKey: ['deliveries', restaurantId] })
+    })
+    
+    // Restaurant alerts and status
+    socket.on('restaurant_alert', () => {
+      queryClient.invalidateQueries({ queryKey: ['restaurant-dashboard', restaurantId] })
+      queryClient.invalidateQueries({ queryKey: ['restaurant-alerts', restaurantId] })
+    })
+    socket.on('restaurant_high_rejection_rate', () => {
+      queryClient.invalidateQueries({ queryKey: ['restaurant-dashboard', restaurantId] })
+      queryClient.invalidateQueries({ queryKey: ['restaurant-alerts', restaurantId] })
     })
     socket.on('restaurant_status', (payload: any) => {
       // Update all related queries when status changes
@@ -54,6 +91,15 @@ export function useRestaurantSocket(restaurantId?: number | null) {
         })
       }
     })
+
+    // Payment events
+    socket.on('payment_captured', invalidateOrders)
+    socket.on('payment_failed', () => {
+      queryClient.invalidateQueries({ queryKey: ['orders-queue', restaurantId] })
+      queryClient.invalidateQueries({ queryKey: ['restaurant-alerts', restaurantId] })
+    })
+    socket.on('refund_initiated', invalidateOrders)
+    socket.on('refund_completed', invalidateOrders)
 
     return () => {
       if (isMounted) {

@@ -217,3 +217,36 @@ class AuditLogEntry(TimestampMixin):
     def __str__(self):
         return f"{self.action} on {self.resource_type}:{self.resource_id} by {self.user.email if self.user else 'System'}"
 
+
+class DeadLetterQueue(TimestampMixin):
+    """Dead-letter queue for failed event broadcasts"""
+    from apps.events.models import Event
+    
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        RETRYING = 'RETRYING', 'Retrying'
+        FAILED = 'FAILED', 'Failed'
+        RESOLVED = 'RESOLVED', 'Resolved'
+    
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='dlq_entries')
+    channel_group = models.CharField(max_length=255)  # e.g., 'customer_1', 'restaurant_2', 'admin'
+    error_message = models.TextField()
+    retry_count = models.IntegerField(default=0)
+    max_retries = models.IntegerField(default=3)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    failed_at = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='resolved_dlq_entries')
+    resolution_notes = models.TextField(blank=True)
+    
+    class Meta:
+        db_table = 'dead_letter_queue'
+        indexes = [
+            models.Index(fields=['status', 'failed_at']),
+            models.Index(fields=['channel_group', 'status']),
+            models.Index(fields=['event']),
+        ]
+        ordering = ['-failed_at']
+    
+    def __str__(self):
+        return f"DLQ Entry for event {self.event.event_id} on {self.channel_group} - {self.status}"

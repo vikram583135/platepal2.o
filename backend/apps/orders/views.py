@@ -25,6 +25,7 @@ from apps.restaurants.permissions import IsRestaurantOwner
 from apps.restaurants.models import Restaurant, RestaurantAlert
 from apps.restaurants.serializers import RestaurantAlertSerializer
 from apps.inventory.services import reserve_inventory_for_order
+from apps.events.broadcast import EventBroadcastService
 
 
 channel_layer = get_channel_layer()
@@ -50,13 +51,39 @@ class OrderViewSet(viewsets.ModelViewSet):
         else:  # CUSTOMER
             return Order.objects.filter(customer=user, is_deleted=False)
     
+    @transaction.atomic
     def perform_create(self, serializer):
         try:
             # Customer is set in serializer.create() from context
             order = serializer.save()
             
-            # Broadcast order_created event
-            self.broadcast_order_created(order)
+            # Create order.created event and broadcast
+            order_data = OrderSerializer(order, context={'request': self.request}).data
+            EventBroadcastService.broadcast_to_multiple(
+                event_type='order.created',
+                aggregate_type='Order',
+                aggregate_id=str(order.id),
+                payload=order_data,
+                customer_id=order.customer.id,
+                restaurant_id=order.restaurant.id,
+                include_admin=True,
+                metadata={
+                    'user_id': self.request.user.id if self.request.user.is_authenticated else None,
+                    'user_role': self.request.user.role if self.request.user.is_authenticated else None,
+                }
+            )
+            
+            # Also broadcast to restaurant branch channel if applicable
+            if hasattr(order.restaurant, 'branches'):
+                for branch in order.restaurant.branches.all():
+                    EventBroadcastService.broadcast(
+                        event_type='order.created',
+                        aggregate_type='Order',
+                        aggregate_id=str(order.id),
+                        payload=order_data,
+                        channels=[f'restaurant_{branch.id}'] if branch.id != order.restaurant.id else [],
+                        metadata={'branch_id': branch.id}
+                    )
         except Exception as e:
             # Log the error for debugging
             import traceback
@@ -127,6 +154,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response(board)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsRestaurantOwner])
+    @transaction.atomic
     def accept(self, request, pk=None):
         """Restaurant accepts order"""
         order = self.get_object()
@@ -138,13 +166,39 @@ class OrderViewSet(viewsets.ModelViewSet):
         order.accepted_at = timezone.now()
         order.save()
         
-        # Broadcast update
-        self.broadcast_order_updated(order)
+        # Create order.accepted event and broadcast
+        order_data = OrderSerializer(order, context={'request': request, 'include_internal': True}).data
+        EventBroadcastService.broadcast_to_multiple(
+            event_type='order.accepted',
+            aggregate_type='Order',
+            aggregate_id=str(order.id),
+            payload=order_data,
+            customer_id=order.customer.id,
+            restaurant_id=order.restaurant.id,
+            include_admin=True,
+            metadata={
+                'user_id': request.user.id,
+                'accepted_at': order.accepted_at.isoformat(),
+            }
+        )
         
         self.evaluate_sla(order)
-        return Response(OrderSerializer(order, context={'request': request, 'include_internal': True}).data)
+        
+        # Trigger automatic rider assignment
+        try:
+            from apps.deliveries.services_assignment import RiderAssignmentService
+            delivery = RiderAssignmentService.assign_rider_to_order(order)
+            if delivery:
+                logger.info(f"Rider assignment triggered for order {order.id}")
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to trigger rider assignment for order {order.id}: {str(e)}")
+        
+        return Response(order_data)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsRestaurantOwner])
+    @transaction.atomic
     def decline(self, request, pk=None):
         """Restaurant declines order"""
         order = self.get_object()
@@ -152,15 +206,84 @@ class OrderViewSet(viewsets.ModelViewSet):
         if order.status != Order.Status.PENDING:
             return Response({'error': 'Order cannot be declined'}, status=status.HTTP_400_BAD_REQUEST)
         
+        cancellation_reason = request.data.get('reason', 'Restaurant declined')
         order.status = Order.Status.CANCELLED
-        order.cancellation_reason = request.data.get('reason', 'Restaurant declined')
+        order.cancellation_reason = cancellation_reason
         order.cancelled_at = timezone.now()
         order.save()
         
-        # Broadcast update
-        self.broadcast_order_updated(order)
+        # Auto-refund if payment was made
+        from apps.payments.models import Payment, Refund
+        from apps.payments.views import process_refund
+        refund_processed = False
+        if hasattr(order, 'payment') and order.payment.status == Payment.Status.COMPLETED:
+            try:
+                # Process refund
+                refund = Refund.objects.create(
+                    payment=order.payment,
+                    order=order,
+                    amount=order.total_amount,
+                    reason=f"Order rejected by restaurant: {cancellation_reason}",
+                    status=Refund.Status.PROCESSING,
+                    processed_by=request.user
+                )
+                # Auto-process refund (in production, integrate with payment gateway)
+                refund.status = Refund.Status.COMPLETED
+                refund.refund_transaction_id = f"REF-{uuid.uuid4().hex[:12].upper()}"
+                refund.processed_at = timezone.now()
+                refund.save()
+                refund_processed = True
+            except Exception as e:
+                # Log error but continue
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to process refund for order {order.id}: {str(e)}")
         
-        return Response(OrderSerializer(order, context={'request': request, 'include_internal': True}).data)
+        # Create order.rejected event and broadcast
+        order_data = OrderSerializer(order, context={'request': request}).data
+        EventBroadcastService.broadcast_to_multiple(
+            event_type='order.rejected',
+            aggregate_type='Order',
+            aggregate_id=str(order.id),
+            payload={
+                **order_data,
+                'rejection_reason': cancellation_reason,
+                'refund_processed': refund_processed,
+            },
+            customer_id=order.customer.id,
+            restaurant_id=order.restaurant.id,
+            include_admin=True,
+            metadata={
+                'user_id': request.user.id,
+                'rejection_reason': cancellation_reason,
+                'refund_processed': refund_processed,
+            }
+        )
+        
+        # Track rejection rate for admin alerts (if high rejection rate)
+        from apps.restaurants.models import RestaurantAlert
+        from datetime import timedelta
+        recent_rejections = Order.objects.filter(
+            restaurant=order.restaurant,
+            status=Order.Status.CANCELLED,
+            cancellation_reason__icontains='declined',
+            cancelled_at__gte=timezone.now() - timedelta(hours=24)
+        ).count()
+        
+        if recent_rejections >= 5:  # Alert if 5+ rejections in 24h
+            EventBroadcastService.broadcast_to_admin(
+                event_type='restaurant.high_rejection_rate',
+                aggregate_type='Restaurant',
+                aggregate_id=str(order.restaurant.id),
+                payload={
+                    'restaurant_id': order.restaurant.id,
+                    'restaurant_name': order.restaurant.name,
+                    'rejection_count': recent_rejections,
+                    'period_hours': 24,
+                }
+            )
+        
+        return Response(order_data)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsRestaurantOwner])
     def start_preparing(self, request, pk=None):
@@ -180,6 +303,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response(OrderSerializer(order, context={'request': request, 'include_internal': True}).data)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsRestaurantOwner])
+    @transaction.atomic
     def mark_ready(self, request, pk=None):
         """Restaurant marks order as ready"""
         order = self.get_object()
@@ -191,11 +315,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         order.ready_at = timezone.now()
         order.save()
         
-        self.broadcast_order_updated(order)
+        self.broadcast_order_updated(order, event_type='order.updated', include_internal=True)
         self.evaluate_sla(order)
         return Response(OrderSerializer(order, context={'request': request, 'include_internal': True}).data)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsRestaurantOwner])
+    @transaction.atomic
     def mark_assigned(self, request, pk=None):
         """Mark order as assigned to delivery"""
         order = self.get_object()
@@ -203,11 +328,12 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Order must be ready or preparing to assign'}, status=status.HTTP_400_BAD_REQUEST)
         order.status = Order.Status.ASSIGNED
         order.save(update_fields=['status', 'updated_at'])
-        self.broadcast_order_updated(order)
+        self.broadcast_order_updated(order, event_type='order.updated', include_internal=True)
         self.evaluate_sla(order)
         return Response(OrderSerializer(order, context={'request': request, 'include_internal': True}).data)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsRestaurantOwner])
+    @transaction.atomic
     def mark_picked_up(self, request, pk=None):
         """Mark order as picked up by courier"""
         order = self.get_object()
@@ -216,10 +342,11 @@ class OrderViewSet(viewsets.ModelViewSet):
         order.status = Order.Status.PICKED_UP
         order.picked_up_at = timezone.now()
         order.save(update_fields=['status', 'picked_up_at'])
-        self.broadcast_order_updated(order)
+        self.broadcast_order_updated(order, event_type='order.updated', include_internal=True)
         return Response(OrderSerializer(order, context={'request': request, 'include_internal': True}).data)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsRestaurantOwner])
+    @transaction.atomic
     def mark_completed(self, request, pk=None):
         """Mark order as delivered/completed"""
         order = self.get_object()
@@ -229,8 +356,39 @@ class OrderViewSet(viewsets.ModelViewSet):
         order.delivered_at = timezone.now()
         order.actual_delivery_time = order.delivered_at
         order.save(update_fields=['status', 'delivered_at', 'actual_delivery_time'])
-        self.broadcast_order_updated(order)
-        return Response(OrderSerializer(order, context={'request': request, 'include_internal': True}).data)
+        
+        # Create order.completed event
+        order_data = OrderSerializer(order, context={'request': request, 'include_internal': True}).data
+        self.broadcast_order_updated(order, event_type='order.completed', include_internal=True)
+        
+        # Capture payment if deferred (workflow 5)
+        from apps.payments.models import Payment
+        if hasattr(order, 'payment') and order.payment.status == Payment.Status.PENDING:
+            # Capture deferred payment
+            try:
+                payment = order.payment
+                payment.status = Payment.Status.COMPLETED
+                payment.processed_at = timezone.now()
+                if not payment.transaction_id:
+                    payment.transaction_id = f"TXN-{uuid.uuid4().hex[:12].upper()}"
+                payment.save()
+                
+                # Broadcast payment.captured event
+                EventBroadcastService.broadcast_to_multiple(
+                    event_type='payment.captured',
+                    aggregate_type='Payment',
+                    aggregate_id=str(payment.id),
+                    payload={'payment_id': payment.id, 'order_id': order.id},
+                    customer_id=order.customer.id,
+                    restaurant_id=order.restaurant.id,
+                    include_admin=True,
+                )
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to capture payment for order {order.id}: {str(e)}")
+        
+        return Response(order_data)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsRestaurantOwner])
     def update_prep_time(self, request, pk=None):
@@ -393,21 +551,18 @@ class OrderViewSet(viewsets.ModelViewSet):
         serializer = OrderSerializer(order, context={'request': request})
         return Response(serializer.data)
     
-    def broadcast_order_created(self, order):
-        """Broadcast order created event"""
-        public_payload = self._serialize_order(order)
-        internal_payload = self._serialize_order(order, include_internal=True)
-        self._send_to_group(f'customer_{order.customer.id}', 'order_created', public_payload)
-        self._send_to_group(f'restaurant_{order.restaurant.id}', 'order_created', internal_payload)
-        self._send_to_group('admin', 'order_created', internal_payload)
-    
-    def broadcast_order_updated(self, order, event_type='order_updated'):
-        """Broadcast order updated event"""
-        public_payload = self._serialize_order(order)
-        internal_payload = self._serialize_order(order, include_internal=True)
-        self._send_to_group(f'customer_{order.customer.id}', event_type, public_payload)
-        self._send_to_group(f'restaurant_{order.restaurant.id}', event_type, internal_payload)
-        self._send_to_group('admin', event_type, internal_payload)
+    def broadcast_order_updated(self, order, event_type='order.updated', include_internal=False):
+        """Broadcast order updated event using EventBroadcastService"""
+        order_data = self._serialize_order(order, include_internal=include_internal)
+        EventBroadcastService.broadcast_to_multiple(
+            event_type=event_type,
+            aggregate_type='Order',
+            aggregate_id=str(order.id),
+            payload=order_data,
+            customer_id=order.customer.id,
+            restaurant_id=order.restaurant.id,
+            include_admin=True,
+        )
     
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
     def courier(self, request, pk=None):
@@ -837,7 +992,11 @@ class OrderViewSet(viewsets.ModelViewSet):
         self._send_to_group('admin', 'restaurant_alert', payload)
 
     def _serialize_order(self, order, include_internal=False):
-        serializer = OrderSerializer(order, context={'include_internal': include_internal})
+        request = getattr(self, 'request', None)
+        serializer = OrderSerializer(
+            order,
+            context={'request': request, 'include_internal': include_internal}
+        )
         return serializer.data
 
     def _send_to_group(self, group_name, event_type, data):

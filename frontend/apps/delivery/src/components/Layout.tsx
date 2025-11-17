@@ -1,5 +1,6 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
+import { useDeliverySocket } from '../hooks/useDeliverySocket'
 import { Button } from '@/packages/ui/components/button'
 import { cn } from '@/packages/utils/cn'
 
@@ -7,6 +8,9 @@ export default function Layout() {
   const { user, logout, isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
+  
+  // Initialize WebSocket connection for delivery/rider
+  useDeliverySocket(user?.id)
 
   const handleLogout = () => {
     logout()

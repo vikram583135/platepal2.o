@@ -12,6 +12,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.core.files.storage import default_storage
 from django.conf import settings
 from .models import Address, PaymentMethod, OTP, Device, TwoFactorAuth, SavedLocation, CookieConsent, BiometricAuth, UserSession
+from datetime import timedelta
 from .serializers import (
     UserSerializer, UserRegistrationSerializer, AddressSerializer, PaymentMethodSerializer,
     CustomTokenObtainPairSerializer, OTPSendSerializer, OTPVerifySerializer,

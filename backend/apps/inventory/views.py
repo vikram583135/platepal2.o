@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -10,6 +10,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.restaurants.models import Restaurant, MenuItem
 from apps.restaurants.permissions import IsRestaurantOwner
+from apps.events.broadcast import EventBroadcastService
 from .models import InventoryItem, StockMovement, RecipeItem
 from .serializers import InventoryItemSerializer, StockMovementSerializer, RecipeItemSerializer
 
@@ -55,6 +56,7 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
         return restaurant
 
     @action(detail=True, methods=['post'])
+    @transaction.atomic
     def restock(self, request, pk=None):
         inventory_item = self.get_object()
         quantity = request.data.get('quantity')
@@ -64,17 +66,85 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
             raise ValidationError({'quantity': 'Provide a numeric quantity.'})
         if quantity <= 0:
             raise ValidationError({'quantity': 'Quantity must be greater than zero.'})
+        
+        previous_stock = inventory_item.current_stock
+        was_low_stock = inventory_item.is_low_stock
+        
         inventory_item.current_stock += quantity
         inventory_item.last_restocked_at = timezone.now()
         inventory_item.save(update_fields=['current_stock', 'last_restocked_at', 'updated_at'])
+        
+        # If item was sold out and is now available, mark menu item available
+        if previous_stock <= 0 and inventory_item.current_stock > 0 and inventory_item.menu_item:
+            if not inventory_item.menu_item.is_available:
+                inventory_item.menu_item.is_available = True
+                inventory_item.menu_item.save(update_fields=['is_available'])
+                
+                # Broadcast menu.updated
+                EventBroadcastService.broadcast_to_restaurant(
+                    restaurant_id=inventory_item.restaurant.id,
+                    event_type='menu.updated',
+                    aggregate_type='MenuItem',
+                    aggregate_id=str(inventory_item.menu_item.id),
+                    payload={
+                        'menu_item_id': inventory_item.menu_item.id,
+                        'is_available': True,
+                        'reason': 'restocked',
+                    },
+                )
+        
+        # Broadcast inventory update if was low stock
+        if was_low_stock and not inventory_item.is_low_stock:
+            EventBroadcastService.broadcast_to_restaurant(
+                restaurant_id=inventory_item.restaurant.id,
+                event_type='inventory_restocked',
+                aggregate_type='InventoryItem',
+                aggregate_id=str(inventory_item.id),
+                payload={
+                    'inventory_item_id': inventory_item.id,
+                    'name': inventory_item.name,
+                    'current_stock': float(inventory_item.current_stock),
+                    'previous_stock': float(previous_stock),
+                    'restocked_quantity': float(quantity),
+                },
+            )
+        
         return Response(self.get_serializer(inventory_item).data)
 
     @action(detail=True, methods=['post'])
+    @transaction.atomic
     def mark_sold_out(self, request, pk=None):
         inventory_item = self.get_object()
         if inventory_item.menu_item:
             inventory_item.menu_item.is_available = False
             inventory_item.menu_item.save(update_fields=['is_available'])
+            
+            # Broadcast menu.updated
+            EventBroadcastService.broadcast_to_restaurant(
+                restaurant_id=inventory_item.restaurant.id,
+                event_type='menu.updated',
+                aggregate_type='MenuItem',
+                aggregate_id=str(inventory_item.menu_item.id),
+                payload={
+                    'menu_item_id': inventory_item.menu_item.id,
+                    'is_available': False,
+                    'reason': 'manually_marked_sold_out',
+                },
+            )
+            
+            # Broadcast item_sold_out event
+            EventBroadcastService.broadcast_to_restaurant(
+                restaurant_id=inventory_item.restaurant.id,
+                event_type='item_sold_out',
+                aggregate_type='MenuItem',
+                aggregate_id=str(inventory_item.menu_item.id),
+                payload={
+                    'menu_item_id': inventory_item.menu_item.id,
+                    'menu_item_name': inventory_item.menu_item.name,
+                    'inventory_item_id': inventory_item.id,
+                },
+            )
+        
         inventory_item.current_stock = Decimal('0.00')
         inventory_item.save(update_fields=['current_stock', 'updated_at'])
         return Response(self.get_serializer(inventory_item).data)
