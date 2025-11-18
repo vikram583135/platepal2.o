@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/packages/api/client'
 
 export default function Navbar() {
-  const { user, isAuthenticated, logout } = useAuthStore()
+  const { isAuthenticated, isGuest, logout } = useAuthStore()
   const { getItemCount } = useCartStore()
   const cartCount = getItemCount()
 
@@ -85,12 +85,22 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                <Link to="/login">
-                  <Button variant="ghost" size="sm">Login</Button>
-                </Link>
-                <Link to="/signup">
-                  <Button size="sm">Sign Up</Button>
-                </Link>
+                {isGuest && (
+                  <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 px-3 py-1 rounded-md text-xs text-yellow-800">
+                    Guest Mode: limited features
+                    <Link to="/login" className="underline font-medium">Login</Link>
+                  </div>
+                )}
+                {!isGuest && (
+                  <>
+                    <Link to="/login">
+                      <Button variant="ghost" size="sm">Login</Button>
+                    </Link>
+                    <Link to="/signup">
+                      <Button size="sm">Sign Up</Button>
+                    </Link>
+                  </>
+                )}
               </>
             )}
           </div>

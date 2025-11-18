@@ -50,7 +50,17 @@ export default function SocialLoginButtons({ onError }: SocialLoginButtonsProps)
         mockData.facebook_id = mockData[`${provider}_id`]
       }
 
-      const response = await apiClient.post(`/auth/oauth/${provider}/`, mockData)
+      let response
+      try {
+        response = await apiClient.post(`/auth/oauth/${provider}/`, mockData)
+      } catch (e: any) {
+        // Gracefully handle environments where social auth isn't configured
+        const status = e?.response?.status
+        if (status === 404 || status === 501) {
+          throw new Error(`${provider[0].toUpperCase() + provider.slice(1)} login is not configured for this environment.`)
+        }
+        throw e
+      }
       
       const { user, tokens } = response.data
       

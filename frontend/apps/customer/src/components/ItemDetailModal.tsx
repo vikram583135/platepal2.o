@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, ShoppingCart, AlertTriangle } from 'lucide-react'
+import { X, ShoppingCart } from 'lucide-react'
 import { Button } from '@/packages/ui/components/button'
 import { Badge } from '@/packages/ui/components/badge'
 import { formatCurrency } from '@/packages/utils/format'
@@ -13,7 +13,7 @@ interface ItemDetailModalProps {
   restaurantId: number
 }
 
-export default function ItemDetailModal({ item, isOpen, onClose, onAddToCart, restaurantId }: ItemDetailModalProps) {
+export default function ItemDetailModal({ item, isOpen, onClose, onAddToCart }: ItemDetailModalProps) {
   const [selectedModifiers, setSelectedModifiers] = useState<any[]>([])
   const [quantity, setQuantity] = useState(1)
   const [specialInstructions, setSpecialInstructions] = useState('')

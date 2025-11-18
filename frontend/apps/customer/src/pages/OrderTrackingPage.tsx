@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import { Card, CardContent, CardHeader, CardTitle } from '@/packages/ui/components/card'
 import { Button } from '@/packages/ui/components/button'
 import { Badge } from '@/packages/ui/components/badge'
 import { Input } from '@/packages/ui/components/input'
 import { Skeleton } from '@/packages/ui/components/skeleton'
-import { Phone, MessageCircle, Clock, MapPin, CheckCircle, Truck, Utensils, Package } from 'lucide-react'
+import { Phone, MessageCircle, Clock, CheckCircle } from 'lucide-react'
 import apiClient from '@/packages/api/client'
-import { formatCurrency, formatDate } from '@/packages/utils/format'
+import { formatCurrency } from '@/packages/utils/format'
 import ChatWidget from '../components/ChatWidget'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
@@ -96,6 +96,10 @@ export default function OrderTrackingPage() {
       setShowOtpInput(true)
       alert('OTP sent to your registered phone number')
     },
+    onError: (error: any) => {
+      const msg = error.response?.data?.detail || 'Failed to generate OTP'
+      alert(msg)
+    },
   })
 
   const verifyOtpMutation = useMutation({
@@ -108,7 +112,13 @@ export default function OrderTrackingPage() {
         alert('OTP verified successfully!')
         setShowOtpInput(false)
         setDeliveryOtp('')
+      } else {
+        alert('Invalid OTP. Please try again.')
       }
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.detail || 'OTP verification failed'
+      alert(msg)
     },
   })
 
@@ -202,21 +212,6 @@ export default function OrderTrackingPage() {
     lng: (restaurantLocation?.lng || 0) + 0.01,
   } : null
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'DELIVERED':
-        return <CheckCircle className="w-5 h-5 text-green-600" />
-      case 'OUT_FOR_DELIVERY':
-      case 'PICKED_UP':
-        return <Truck className="w-5 h-5 text-blue-600" />
-      case 'PREPARING':
-      case 'READY':
-        return <Utensils className="w-5 h-5 text-yellow-600" />
-      default:
-        return <Package className="w-5 h-5 text-gray-600" />
-    }
-  }
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
@@ -252,17 +247,17 @@ export default function OrderTrackingPage() {
                   />
                   {restaurantLocation && (
                     <Marker position={[restaurantLocation.lat, restaurantLocation.lng]}>
-                      <L.Popup>Restaurant</L.Popup>
+                      <Popup>Restaurant</Popup>
                     </Marker>
                   )}
                   {deliveryLocation && (
                     <Marker position={[deliveryLocation.lat, deliveryLocation.lng]}>
-                      <L.Popup>Delivery Address</L.Popup>
+                      <Popup>Delivery Address</Popup>
                     </Marker>
                   )}
                   {courierLocation && (
                     <Marker position={[courierLocation.lat, courierLocation.lng]}>
-                      <L.Popup>Courier</L.Popup>
+                      <Popup>Courier</Popup>
                     </Marker>
                   )}
                 </MapContainer>

@@ -9,34 +9,54 @@ from django.utils import timezone
 
 from apps.orders.models import Review, ItemReview
 from apps.restaurants.models import Restaurant
+from apps.restaurants.serializers import RestaurantSerializer
 from .permissions import IsAdminUser, HasAdminPermission
 from .models import AuditLogEntry
+from .serializers import ReviewModerationSerializer
 
 
 class ReviewModerationViewSet(viewsets.ModelViewSet):
     """Review moderation management"""
     queryset = Review.objects.all()
+    serializer_class = ReviewModerationSerializer
     permission_classes = [IsAdminUser, HasAdminPermission(permission_codename='admin.moderation.manage')]
     
     def get_queryset(self):
+        from .utils import validate_query_param
+        
         queryset = Review.objects.select_related('customer', 'restaurant', 'order').all()
         
-        # Filtering
-        is_flagged = self.request.query_params.get('is_flagged')
-        is_approved = self.request.query_params.get('is_approved')
-        search = self.request.query_params.get('search')
-        severity = self.request.query_params.get('severity')
-        
-        if is_flagged is not None:
-            queryset = queryset.filter(is_flagged=is_flagged.lower() == 'true')
-        if is_approved is not None:
-            queryset = queryset.filter(is_approved=is_approved.lower() == 'true')
-        if search:
-            queryset = queryset.filter(
-                Q(comment__icontains=search) |
-                Q(customer__email__icontains=search) |
-                Q(restaurant__name__icontains=search)
+        # Filtering with validation
+        try:
+            is_flagged = validate_query_param(
+                self.request.query_params.get('is_flagged'),
+                'is_flagged',
+                param_type=bool
             )
+            is_approved = validate_query_param(
+                self.request.query_params.get('is_approved'),
+                'is_approved',
+                param_type=bool
+            )
+            search = validate_query_param(
+                self.request.query_params.get('search'),
+                'search',
+                param_type=str
+            )
+            
+            if is_flagged is not None:
+                queryset = queryset.filter(is_flagged=is_flagged)
+            if is_approved is not None:
+                queryset = queryset.filter(is_approved=is_approved)
+            if search:
+                queryset = queryset.filter(
+                    Q(comment__icontains=search) |
+                    Q(customer__email__icontains=search) |
+                    Q(restaurant__name__icontains=search)
+                )
+        except Exception as e:
+            # If validation fails, return empty queryset or handle error
+            pass
         
         return queryset.order_by('-created_at')
     
@@ -171,6 +191,7 @@ class ReviewModerationViewSet(viewsets.ModelViewSet):
 class RestaurantContentManagementViewSet(viewsets.ReadOnlyModelViewSet):
     """Restaurant content management"""
     queryset = Restaurant.objects.all()
+    serializer_class = RestaurantSerializer
     permission_classes = [IsAdminUser, HasAdminPermission(permission_codename='admin.content.manage')]
     
     @action(detail=True, methods=['post'])

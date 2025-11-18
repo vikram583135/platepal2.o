@@ -14,6 +14,10 @@ from .models_operations import (
 )
 from .permissions import IsAdminUser, HasAdminPermission
 from .models import AuditLogEntry
+from .serializers import (
+    AlertRuleSerializer, IncidentSerializer, RateLimitRuleSerializer,
+    IPWhitelistSerializer, IPBlacklistSerializer, MaintenanceWindowSerializer
+)
 
 
 class SystemHealthViewSet(viewsets.ViewSet):
@@ -81,6 +85,7 @@ class SystemHealthViewSet(viewsets.ViewSet):
 class AlertRuleViewSet(viewsets.ModelViewSet):
     """Alert rule management"""
     queryset = AlertRule.objects.all()
+    serializer_class = AlertRuleSerializer
     permission_classes = [IsAdminUser, HasAdminPermission(permission_codename='admin.alerts.manage')]
     
     @action(detail=True, methods=['post'])
@@ -94,18 +99,37 @@ class AlertRuleViewSet(viewsets.ModelViewSet):
 class IncidentViewSet(viewsets.ModelViewSet):
     """Incident management"""
     queryset = Incident.objects.all()
+    serializer_class = IncidentSerializer
     permission_classes = [IsAdminUser, HasAdminPermission(permission_codename='admin.incidents.manage')]
     
     def get_queryset(self):
+        from .models_operations import Incident
+        from .utils import validate_query_param
+        
         queryset = Incident.objects.select_related('reported_by', 'resolved_by').all()
         
-        status = self.request.query_params.get('status')
-        severity = self.request.query_params.get('severity')
-        
-        if status:
-            queryset = queryset.filter(status=status)
-        if severity:
-            queryset = queryset.filter(severity=severity)
+        # Validate query parameters
+        try:
+            status_filter = validate_query_param(
+                self.request.query_params.get('status'),
+                'status',
+                param_type=str,
+                choices=[s[0] for s in Incident.Status.choices] if hasattr(Incident, 'Status') else None
+            )
+            severity_filter = validate_query_param(
+                self.request.query_params.get('severity'),
+                'severity',
+                param_type=str,
+                choices=[s[0] for s in Incident.Severity.choices] if hasattr(Incident, 'Severity') else None
+            )
+            
+            if status_filter:
+                queryset = queryset.filter(status=status_filter)
+            if severity_filter:
+                queryset = queryset.filter(severity=severity_filter)
+        except Exception:
+            # If validation fails, continue without filter
+            pass
         
         return queryset.order_by('-created_at')
     
@@ -171,24 +195,28 @@ class IncidentViewSet(viewsets.ModelViewSet):
 class RateLimitRuleViewSet(viewsets.ModelViewSet):
     """Rate limit rule management"""
     queryset = RateLimitRule.objects.all()
+    serializer_class = RateLimitRuleSerializer
     permission_classes = [IsAdminUser, HasAdminPermission(permission_codename='admin.ratelimit.manage')]
 
 
 class IPWhitelistViewSet(viewsets.ModelViewSet):
     """IP whitelist management"""
     queryset = IPWhitelist.objects.all()
+    serializer_class = IPWhitelistSerializer
     permission_classes = [IsAdminUser, HasAdminPermission(permission_codename='admin.security.manage')]
 
 
 class IPBlacklistViewSet(viewsets.ModelViewSet):
     """IP blacklist management"""
     queryset = IPBlacklist.objects.all()
+    serializer_class = IPBlacklistSerializer
     permission_classes = [IsAdminUser, HasAdminPermission(permission_codename='admin.security.manage')]
 
 
 class MaintenanceWindowViewSet(viewsets.ModelViewSet):
     """Maintenance window management"""
     queryset = MaintenanceWindow.objects.all()
+    serializer_class = MaintenanceWindowSerializer
     permission_classes = [IsAdminUser, HasAdminPermission(permission_codename='admin.maintenance.manage')]
     
     def perform_create(self, serializer):

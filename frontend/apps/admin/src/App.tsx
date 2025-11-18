@@ -29,10 +29,30 @@ import DeliveryPartnersPage from './pages/Delivery/DeliveryPartnersPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('access_token')
-  if (!token) {
+  const refreshToken = localStorage.getItem('refresh_token')
+  
+  // Check if token exists
+  if (!token && !refreshToken) {
     return <Navigate to="/login" replace />
   }
+
+  // Token exists - let API client handle validation and refresh
+  // If token is invalid, API client will clear it and component will handle error
   return <AdminLayout>{children}</AdminLayout>
+}
+
+function NotFoundPage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">404</h1>
+        <p className="text-gray-600 mb-8">Page not found</p>
+        <a href="/" className="text-blue-600 hover:text-blue-800">
+          Return to Dashboard
+        </a>
+      </div>
+    </div>
+  )
 }
 
 export default function App() {
@@ -240,6 +260,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   )

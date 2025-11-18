@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { useDeliverySocket } from '../hooks/useDeliverySocket'
@@ -8,6 +9,15 @@ export default function Layout() {
   const { user, logout, isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
+  
+  // Validate user role on mount (defense-in-depth)
+  useEffect(() => {
+    if (isAuthenticated && user && user.role !== 'DELIVERY') {
+      // User has wrong role, logout and redirect
+      logout()
+      navigate('/login', { replace: true })
+    }
+  }, [isAuthenticated, user, logout, navigate])
   
   // Initialize WebSocket connection for delivery/rider
   useDeliverySocket(user?.id)
@@ -26,14 +36,13 @@ export default function Layout() {
     { path: '/settings', label: 'Settings', icon: '⚙️' },
   ]
 
-  if (!isAuthenticated && location.pathname !== '/login' && location.pathname !== '/signup' && !location.pathname.startsWith('/onboarding')) {
-    navigate('/login')
-    return null
-  }
-
+  // Don't render layout for login/signup/onboarding pages - just render the page directly
   if (location.pathname === '/login' || location.pathname === '/signup' || location.pathname.startsWith('/onboarding')) {
     return <Outlet />
   }
+
+  // For protected routes, ProtectedRoute will handle auth checks
+  // Layout just provides the UI structure for authenticated users
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -132,7 +132,11 @@ export default function RestaurantFilters({ filters, onFiltersChange, onClose }:
               step="0.1"
               placeholder="Min"
               value={localFilters.minRating || ''}
-              onChange={(e) => setLocalFilters({ ...localFilters, minRating: e.target.value ? parseFloat(e.target.value) : null })}
+              onChange={(e) => {
+                const val = e.target.value ? parseFloat(e.target.value) : null
+                if (val !== null && (val < 0 || val > 5)) return
+                setLocalFilters({ ...localFilters, minRating: val })
+              }}
               className="flex-1 p-2 border rounded-lg"
             />
             <span className="self-center">to</span>
@@ -143,7 +147,11 @@ export default function RestaurantFilters({ filters, onFiltersChange, onClose }:
               step="0.1"
               placeholder="Max"
               value={localFilters.maxRating || ''}
-              onChange={(e) => setLocalFilters({ ...localFilters, maxRating: e.target.value ? parseFloat(e.target.value) : null })}
+              onChange={(e) => {
+                const val = e.target.value ? parseFloat(e.target.value) : null
+                if (val !== null && (val < 0 || val > 5)) return
+                setLocalFilters({ ...localFilters, maxRating: val })
+              }}
               className="flex-1 p-2 border rounded-lg"
             />
           </div>

@@ -64,13 +64,14 @@ export default function LoginPage() {
       const response = await apiClient.get('/deliveries/onboarding/status/')
       const onboarding = response.data
       
-      if (onboarding.status === 'COMPLETED' && onboarding.is_approved) {
+      // Check if onboarding status is APPROVED (backend returns 'APPROVED' status)
+      if (onboarding.status === 'APPROVED') {
         navigate('/')
       } else {
         navigate('/onboarding')
       }
     } catch (error) {
-      // If onboarding doesn't exist, redirect to onboarding
+      // If onboarding doesn't exist or API call fails, redirect to onboarding
       navigate('/onboarding')
     }
   }

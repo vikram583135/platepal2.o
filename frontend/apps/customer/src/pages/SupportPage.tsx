@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Card, CardContent, CardHeader, CardTitle } from '@/packages/ui/components/card'
+import { Card, CardContent } from '@/packages/ui/components/card'
 import { Button } from '@/packages/ui/components/button'
 import { Input } from '@/packages/ui/components/input'
 import { Badge } from '@/packages/ui/components/badge'
 import { Skeleton } from '@/packages/ui/components/skeleton'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/packages/ui/components/dialog'
 // Using native HTML elements
-import { MessageSquare, Phone, Ticket, Send, Bot, User, CheckCircle, Clock, XCircle } from 'lucide-react'
+import { Phone, Ticket, Send, Bot, User } from 'lucide-react'
 import apiClient from '@/packages/api/client'
 import { formatDate } from '@/packages/utils/format'
 import { useNavigate } from 'react-router-dom'
@@ -54,6 +54,10 @@ export default function SupportPage() {
       setShowTicketModal(false)
       navigate(`/support/tickets/${data.id}`)
     },
+    onError: (error: any) => {
+      const msg = error.response?.data?.detail || 'Failed to create ticket'
+      alert(msg)
+    },
   })
 
   const chatbotMutation = useMutation({
@@ -65,7 +69,7 @@ export default function SupportPage() {
       return response.data
     },
     onSuccess: (data) => {
-      if (!sessionId) {
+      if (!sessionId && data.session_id) {
         setSessionId(data.session_id)
       }
       setChatHistory((prev) => [
@@ -77,6 +81,10 @@ export default function SupportPage() {
       setTimeout(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
       }, 100)
+    },
+    onError: (error: any) => {
+      const msg = error.response?.data?.detail || 'Chatbot request failed'
+      alert(msg)
     },
   })
 

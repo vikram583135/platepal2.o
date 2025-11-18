@@ -50,9 +50,12 @@ export default function OTPVerificationPage() {
   }, [email, phone, navigate, expiresAt])
 
   useEffect(() => {
-    // Auto-verify when OTP is complete
-    if (otp.length === 6) {
-      handleVerify()
+    // Auto-verify when OTP is complete (with small delay for better UX)
+    if (otp.length === 6 && !loading) {
+      const timer = setTimeout(() => {
+        handleVerify()
+      }, 300)
+      return () => clearTimeout(timer)
     }
   }, [otp])
 
@@ -137,8 +140,15 @@ export default function OTPVerificationPage() {
         <CardContent>
           <div className="space-y-6">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                {error}
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+                <strong className="font-medium">Error: </strong>
+                <span className="block sm:inline">{error}</span>
+              </div>
+            )}
+
+            {loading && otp.length === 6 && (
+              <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded" role="status">
+                <span className="block sm:inline">Verifying your code...</span>
               </div>
             )}
 

@@ -5,7 +5,7 @@ import { WebSocketEvent } from '../types'
 
 type EventHandler = (event: WebSocketEvent) => void
 
-class WebSocketClient {
+export class WebSocketClient {
   private ws: WebSocket | null = null
   private url: string
   private token: string

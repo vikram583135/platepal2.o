@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/packages/ui/components/card'
 import { Badge } from '@/packages/ui/components/badge'
 import { Skeleton } from '@/packages/ui/components/skeleton'
-import { CheckCircle, Clock, XCircle, ArrowLeftRight } from 'lucide-react'
+import { CheckCircle, Clock } from 'lucide-react'
 import apiClient from '@/packages/api/client'
 import { formatCurrency, formatDate } from '@/packages/utils/format'
 import { useNavigate } from 'react-router-dom'
@@ -39,20 +39,16 @@ export default function RefundPage() {
   }
 
   if (!refund) {
-    return <div>Refund not found</div>
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'COMPLETED':
-        return <CheckCircle className="w-5 h-5 text-green-600" />
-      case 'PROCESSING':
-        return <Clock className="w-5 h-5 text-yellow-600" />
-      case 'FAILED':
-        return <XCircle className="w-5 h-5 text-red-600" />
-      default:
-        return <Clock className="w-5 h-5 text-gray-600" />
-    }
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded">
+          Refund not found or you don't have permission to view it.
+        </div>
+        <Button className="mt-4" onClick={() => navigate('/orders')}>
+          Back to Orders
+        </Button>
+      </div>
+    )
   }
 
   const getStatusColor = (status: string) => {

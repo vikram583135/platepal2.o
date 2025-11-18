@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/packages/ui/componen
 import { Badge } from '@/packages/ui/components/badge'
 import { Button } from '@/packages/ui/components/button'
 import { Skeleton } from '@/packages/ui/components/skeleton'
-import { Tag, Percent, Gift, CreditCard, Smartphone, Building2 } from 'lucide-react'
+import { Tag, Percent, Gift, Smartphone, Building2 } from 'lucide-react'
 import apiClient from '@/packages/api/client'
 import { formatCurrency } from '@/packages/utils/format'
 

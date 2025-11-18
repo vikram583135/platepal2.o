@@ -40,7 +40,9 @@ export default function SignupPage() {
         })
       } catch (otpError: any) {
         // Log OTP error but continue with signup
-        console.warn('OTP sending failed:', otpError)
+        if (otpError) {
+        // OTP sending failed, user can skip or retry
+      }
         // In development, we can continue without OTP
         // In production, you might want to fail here
       }
@@ -63,7 +65,6 @@ export default function SignupPage() {
         },
       })
     } catch (err: any) {
-      console.error('Signup error:', err)
       const errorMessage = err.message || 
                           err.response?.data?.email?.[0] ||
                           err.response?.data?.password?.[0] ||

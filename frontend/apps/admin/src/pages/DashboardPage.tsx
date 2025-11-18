@@ -3,13 +3,37 @@ import apiClient from '@/packages/api/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/packages/ui/components/card'
 
 export default function DashboardPage() {
-  const { data: analytics } = useQuery({
+  const { data: analytics, isLoading, error } = useQuery({
     queryKey: ['analytics'],
     queryFn: async () => {
       const response = await apiClient.get('/analytics/analytics/dashboard/')
       return response.data
     },
+    retry: 1,
   })
+
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
+        <div className="text-center py-12">
+          <p className="text-gray-500">Loading dashboard data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <p className="font-semibold">Error loading dashboard</p>
+          <p className="text-sm">{(error as any)?.response?.data?.error || (error as any)?.message || 'An error occurred'}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -28,7 +52,7 @@ export default function DashboardPage() {
             <CardTitle>Today's Revenue</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">${analytics?.revenue?.today || 0}</p>
+            <p className="text-3xl font-bold">₹{analytics?.revenue?.today || 0}</p>
           </CardContent>
         </Card>
         <Card>

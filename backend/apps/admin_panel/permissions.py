@@ -11,7 +11,19 @@ class IsAdminUser(permissions.BasePermission):
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        return request.user.role == 'ADMIN' or request.user.is_staff
+        # Superusers are always admins
+        if request.user.is_superuser:
+            return True
+        # Check if user has ADMIN role
+        if request.user.role == 'ADMIN' or request.user.is_staff:
+            # Also verify AdminUser exists and is active
+            try:
+                admin_user = AdminUser.objects.get(user=request.user, is_active=True)
+                return True
+            except AdminUser.DoesNotExist:
+                # If role is ADMIN but no AdminUser record, still allow if is_staff
+                return request.user.is_staff
+        return False
 
 
 class HasAdminPermission(permissions.BasePermission):

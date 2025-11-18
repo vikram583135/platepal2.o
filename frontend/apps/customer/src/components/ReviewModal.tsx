@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/packages/ui/components/dialog'
 import { Button } from '@/packages/ui/components/button'
-import { Input } from '@/packages/ui/components/input'
 import { Star, Upload, X } from 'lucide-react'
 import apiClient from '@/packages/api/client'
 
@@ -20,7 +19,6 @@ export default function ReviewModal({ orderId, restaurantId, isOpen, onClose, on
   const [deliveryRating, setDeliveryRating] = useState(0)
   const [comment, setComment] = useState('')
   const [images, setImages] = useState<File[]>([])
-  const [itemRatings, setItemRatings] = useState<Record<number, number>>({})
   const queryClient = useQueryClient()
 
   const createReviewMutation = useMutation({
@@ -58,10 +56,6 @@ export default function ReviewModal({ orderId, restaurantId, isOpen, onClose, on
       food_rating: foodRating || null,
       delivery_rating: deliveryRating || null,
       comment: comment,
-      item_reviews: Object.entries(itemRatings).map(([orderItemId, rating]) => ({
-        order_item: parseInt(orderItemId),
-        rating: rating,
-      })),
     })
   }
 

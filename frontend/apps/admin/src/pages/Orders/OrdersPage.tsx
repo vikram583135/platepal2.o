@@ -22,7 +22,7 @@ export default function OrdersPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
-  const { data: orders, isLoading } = useQuery({
+  const { data: orders, isLoading, error } = useQuery({
     queryKey: ['admin-orders', searchQuery, statusFilter],
     queryFn: async () => {
       const params: any = {}
@@ -31,6 +31,7 @@ export default function OrdersPage() {
       const response = await apiClient.get('/orders/', { params })
       return response.data.results || response.data
     },
+    retry: 1,
   })
 
   const columns: Column<Order>[] = [
@@ -124,13 +125,28 @@ export default function OrdersPage() {
         </select>
       </div>
 
-      <DataTable
-        data={orders || []}
-        columns={columns}
-        loading={isLoading}
-        searchable={false}
-        pageSize={20}
-      />
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          <p className="font-semibold">Error loading orders</p>
+          <p className="text-sm">{(error as any)?.response?.data?.error || (error as any)?.message || 'An error occurred'}</p>
+        </div>
+      )}
+
+      {isLoading && !orders && (
+        <div className="text-center py-12">
+          <p className="text-gray-500">Loading orders...</p>
+        </div>
+      )}
+
+      {!isLoading && !error && (
+        <DataTable
+          data={orders || []}
+          columns={columns}
+          loading={isLoading}
+          searchable={false}
+          pageSize={20}
+        />
+      )}
     </div>
   )
 }

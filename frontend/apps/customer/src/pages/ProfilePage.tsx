@@ -7,11 +7,13 @@ import { Button } from '@/packages/ui/components/button'
 import { Input } from '@/packages/ui/components/input'
 import { Badge } from '@/packages/ui/components/badge'
 import { Skeleton } from '@/packages/ui/components/skeleton'
-import { Camera, Trash2, Edit2, Save, X, Shield, Smartphone } from 'lucide-react'
+import { Camera, Trash2, Edit2, Save, X, Shield, Smartphone, Download, AlertTriangle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import AddressForm from '../components/AddressForm'
 
 export default function ProfilePage() {
   const { user, setUser, logout } = useAuthStore()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
   const [editData, setEditData] = useState({
@@ -24,10 +26,11 @@ export default function ProfilePage() {
     new_password: '',
     confirm_password: '',
   })
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteExport, setDeleteExport] = useState(false)
   const [showAddressForm, setShowAddressForm] = useState(false)
   const [editingAddress, setEditingAddress] = useState<any>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
   const { data: addresses, isLoading: addressesLoading } = useQuery({
     queryKey: ['addresses'],
@@ -44,6 +47,21 @@ export default function ProfilePage() {
       return response.data.results || response.data
     },
   })
+
+    const revokeDeviceMutation = useMutation({
+      mutationFn: async (deviceId: number) => {
+        // Prefer explicit revoke endpoint; fallback to delete
+        try {
+          const res = await apiClient.post(`/auth/devices/${deviceId}/revoke/`)
+          return res.data
+        } catch (e: any) {
+          await apiClient.delete(`/auth/devices/${deviceId}/`)
+        }
+      },
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['devices'] })
+      },
+    })
 
   const { data: twoFactorAuth } = useQuery({
     queryKey: ['two-factor-auth'],
@@ -98,7 +116,26 @@ export default function ProfilePage() {
     },
     onSuccess: () => {
       logout()
-      window.location.href = '/'
+      navigate('/signup')
+    },
+  })
+
+  const exportDataMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.get('/auth/users/export-data/')
+      return response.data
+    },
+    onSuccess: (data) => {
+      // Create and download JSON file
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `platepal-data-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
     },
   })
 
@@ -160,10 +197,19 @@ export default function ProfilePage() {
     })
   }
 
-  const handleDeleteAccount = () => {
-    if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-      deleteAccountMutation.mutate(deleteExport)
+  const handleExportData = async () => {
+    try {
+      await exportDataMutation.mutateAsync()
+    } catch (error: any) {
+      alert(error.response?.data?.detail || 'Failed to export data')
     }
+  }
+
+  const handleDeleteAccount = () => {
+    if (deleteConfirmText !== 'DELETE') {
+      return
+    }
+    deleteAccountMutation.mutate(deleteExport)
   }
 
   if (!user) {
@@ -383,7 +429,17 @@ export default function ProfilePage() {
                             Last used: {new Date(device.last_used).toLocaleDateString()}
                           </p>
                         </div>
-                        {device.is_trusted && <Badge>Trusted</Badge>}
+                          <div className="flex items-center gap-2">
+                            {device.is_trusted && <Badge>Trusted</Badge>}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => revokeDeviceMutation.mutate(device.id)}
+                              disabled={revokeDeviceMutation.isPending}
+                            >
+                              Revoke
+                            </Button>
+                          </div>
                       </div>
                     ))}
                   </div>
@@ -510,8 +566,112 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Account Management */}
+          <Card className="border-red-200">
+            <CardHeader>
+              <CardTitle className="text-red-600 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" />
+                Account Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <h4 className="font-semibold mb-2">Export Your Data</h4>
+                <p className="text-sm text-gray-600 mb-3">
+                  Download a copy of your personal data including profile, orders, and preferences.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={handleExportData}
+                  disabled={exportDataMutation.isPending}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  {exportDataMutation.isPending ? 'Exporting...' : 'Export Data'}
+                </Button>
+              </div>
+
+              <div className="pt-4 border-t border-gray-200">
+                <h4 className="font-semibold mb-2 text-red-600">Delete Account</h4>
+                <p className="text-sm text-gray-600 mb-3">
+                  Permanently delete your account and all associated data. This action cannot be undone.
+                </p>
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Delete Account
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="max-w-md w-full">
+            <CardHeader>
+              <CardTitle className="text-red-600 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" />
+                Confirm Account Deletion
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2 text-sm">
+                <p className="font-semibold">This will permanently delete:</p>
+                <ul className="list-disc list-inside text-gray-600 space-y-1">
+                  <li>Your profile and personal information</li>
+                  <li>Order history and preferences</li>
+                  <li>Saved addresses and payment methods</li>
+                  <li>Rewards and wallet balance</li>
+                </ul>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 p-3 rounded">
+                <p className="text-sm text-yellow-800">
+                  <strong>Tip:</strong> Export your data before deleting if you want to keep a copy.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Type <strong>DELETE</strong> to confirm
+                </label>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="DELETE"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowDeleteConfirm(false)
+                    setDeleteConfirmText('')
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteAccount}
+                  disabled={deleteConfirmText !== 'DELETE' || deleteAccountMutation.isPending}
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                >
+                  {deleteAccountMutation.isPending ? 'Deleting...' : 'Delete Account'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,17 +1,16 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useCartStore } from '../stores/cartStore'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import apiClient from '@/packages/api/client'
 import { Button } from '@/packages/ui/components/button'
 import { Input } from '@/packages/ui/components/input'
 import { Card, CardContent } from '@/packages/ui/components/card'
-import { Badge } from '@/packages/ui/components/badge'
-import { Plus, Minus, Trash2, Tag, Clock, Check, X } from 'lucide-react'
+import { Plus, Minus, Trash2, Tag, Clock, X } from 'lucide-react'
 import { formatCurrency } from '@/packages/utils/format'
 
 export default function CartPage() {
-  const { items, restaurantId, updateQuantity, removeItem, getTotal, clearCart } = useCartStore()
+  const { items, restaurantId, updateQuantity, removeItem, getTotal } = useCartStore()
   const [couponCode, setCouponCode] = useState('')
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null)
   const [couponError, setCouponError] = useState('')
@@ -20,7 +19,6 @@ export default function CartPage() {
   const gstRate = 0.18 // 18% GST
   const packagingFee = 5 // Fixed packaging fee
   const platformFee = subtotal > 0 ? Math.max(5, subtotal * 0.02) : 0 // 2% or min ₹5
-  const gst = subtotal * gstRate
   const discount = appliedCoupon ? calculateDiscount(subtotal, appliedCoupon) : 0
   const finalSubtotal = subtotal - discount
   const finalGst = finalSubtotal * gstRate
@@ -71,7 +69,12 @@ export default function CartPage() {
       setCouponError('Please enter a coupon code')
       return
     }
-    validateCouponMutation.mutate(couponCode.trim())
+    if (!restaurantId) {
+      setCouponError('Unable to apply coupon. Please try again.')
+      return
+    }
+    setCouponError('')
+    validateCouponMutation.mutate(couponCode.trim().toUpperCase())
   }
 
   const handleRemoveCoupon = () => {

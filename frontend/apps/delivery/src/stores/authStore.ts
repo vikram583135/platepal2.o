@@ -46,6 +46,13 @@ export const useAuthStore = create<AuthState>()(
           const userResponse = await apiClient.get('/auth/users/me/')
           const user = userResponse.data
           
+          // Validate that user has DELIVERY role
+          if (user.role !== 'DELIVERY') {
+            // Clear tokens if role is incorrect
+            apiClient.clearAuth()
+            throw new Error('This account is not authorized for delivery portal. Please use the correct portal for your account type.')
+          }
+          
           set({
             user,
             accessToken: access,
@@ -77,6 +84,13 @@ export const useAuthStore = create<AuthState>()(
           })
           
           const { tokens, user } = response.data
+          
+          // Validate that user has DELIVERY role
+          if (user.role !== 'DELIVERY') {
+            // Don't set tokens if role is incorrect
+            throw new Error('This account is not authorized for delivery portal. Please use the correct portal for your account type.')
+          }
+          
           apiClient.setAuthToken(tokens.access)
           apiClient.setRefreshToken(tokens.refresh)
           
@@ -110,6 +124,12 @@ export const useAuthStore = create<AuthState>()(
           })
           
           const { user, tokens } = response.data
+          
+          // Validate that user has DELIVERY role (should always be DELIVERY for signup, but verify)
+          if (user.role !== 'DELIVERY') {
+            throw new Error('Invalid account type. Delivery signup must create a DELIVERY account.')
+          }
+          
           apiClient.setAuthToken(tokens.access)
           apiClient.setRefreshToken(tokens.refresh)
           

@@ -13,6 +13,9 @@ from .models_advanced import (
 )
 from .permissions import IsAdminUser, HasAdminPermission
 from .models import AuditLogEntry
+from .serializers import (
+    ChargebackSerializer, FeatureFlagSerializer, SLOSerializer
+)
 
 
 class FraudDetectionViewSet(viewsets.ViewSet):
@@ -90,6 +93,7 @@ class FraudDetectionViewSet(viewsets.ViewSet):
 class ChargebackViewSet(viewsets.ModelViewSet):
     """Chargeback management"""
     queryset = Chargeback.objects.all()
+    serializer_class = ChargebackSerializer
     permission_classes = [IsAdminUser, HasAdminPermission(permission_codename='admin.chargeback.manage')]
     
     def get_queryset(self):
@@ -152,6 +156,7 @@ class ChargebackViewSet(viewsets.ModelViewSet):
 class FeatureFlagViewSet(viewsets.ModelViewSet):
     """Feature flag management"""
     queryset = FeatureFlag.objects.all()
+    serializer_class = FeatureFlagSerializer
     permission_classes = [IsAdminUser, HasAdminPermission(permission_codename='admin.feature_flags.manage')]
     
     def perform_create(self, serializer):
@@ -229,6 +234,7 @@ class FeatureFlagViewSet(viewsets.ModelViewSet):
 class SLOViewSet(viewsets.ModelViewSet):
     """SLO management"""
     queryset = SLO.objects.all()
+    serializer_class = SLOSerializer
     permission_classes = [IsAdminUser, HasAdminPermission(permission_codename='admin.slo.manage')]
     
     @action(detail=False, methods=['get'])

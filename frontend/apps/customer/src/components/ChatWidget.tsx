@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { X, Send, Image as ImageIcon } from 'lucide-react'
+import { X, Send } from 'lucide-react'
 import { Button } from '@/packages/ui/components/button'
 import { Input } from '@/packages/ui/components/input'
 import { formatDate } from '@/packages/utils/format'
 import { useAuthStore } from '../stores/authStore'
 import { createChatWebSocket } from '@/packages/api/chat'
 import apiClient from '@/packages/api/client'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 
 interface ChatWidgetProps {
   roomId: number
@@ -31,15 +31,14 @@ interface ChatMessage {
 }
 
 export default function ChatWidget({ roomId, orderId, onClose, isMinimized, onMinimize }: ChatWidgetProps) {
-  const { user, token } = useAuthStore()
+  const { user, accessToken } = useAuthStore()
   const [message, setMessage] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isTyping, setIsTyping] = useState(false)
   const [typingUser, setTypingUser] = useState<string | null>(null)
   const [ws, setWs] = useState<ReturnType<typeof createChatWebSocket> | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const queryClient = useQueryClient()
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Fetch messages
   const { data: fetchedMessages, refetch } = useQuery({
@@ -58,9 +57,9 @@ export default function ChatWidget({ roomId, orderId, onClose, isMinimized, onMi
 
   // WebSocket connection
   useEffect(() => {
-    if (!token || !roomId) return
+    if (!accessToken || !roomId) return
 
-    const chatWs = createChatWebSocket(roomId, token)
+    const chatWs = createChatWebSocket(roomId, accessToken)
     
     chatWs.on('chat_message', (event: any) => {
       if (event.data) {
@@ -94,7 +93,7 @@ export default function ChatWidget({ roomId, orderId, onClose, isMinimized, onMi
     return () => {
       chatWs.disconnect()
     }
-  }, [roomId, token, user?.id])
+  }, [roomId, accessToken, user?.id])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })

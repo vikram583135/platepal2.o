@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import apiClient from '@/packages/api/client'
 import { useCartStore } from '../stores/cartStore'
@@ -102,8 +102,12 @@ export default function RestaurantDetailPage() {
   }
 
   const handleAddToCart = (item: any, modifiers: any[], quantity: number) => {
+    if (!restaurant?.id) {
+      alert('Restaurant information unavailable. Please refresh the page.')
+      return
+    }
     for (let i = 0; i < quantity; i++) {
-      addItem(item, modifiers, restaurant?.id)
+      addItem(item, modifiers, restaurant.id)
     }
   }
 

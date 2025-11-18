@@ -20,6 +20,10 @@ self.addEventListener('install', (event) => {
 
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
+  // In development, bypass SW logic entirely to avoid interfering with Vite
+  const isLocal = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1'
+  if (isLocal) return
+
   event.respondWith(
     caches.match(event.request).then((response) => {
       // Return cached version or fetch from network
@@ -39,10 +43,12 @@ self.addEventListener('fetch', (event) => {
         return response
       })
     }).catch(() => {
-      // Offline fallback
-      if (event.request.destination === 'document') {
+      // Offline fallback for navigation requests
+      if (event.request.mode === 'navigate' || event.request.destination === 'document') {
         return caches.match('/')
       }
+      // Return a no-content response instead of undefined to satisfy the SW spec
+      return new Response(null, { status: 204 })
     })
   )
 })

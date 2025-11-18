@@ -27,7 +27,8 @@ export default function LoginPage() {
       }
     },
     onError: (err: any) => {
-      setError(err.response?.data?.detail || 'Login failed')
+      const errorMessage = err.response?.data?.detail || err.response?.data?.message || err.message || 'Login failed'
+      setError(errorMessage)
     }
   })
 

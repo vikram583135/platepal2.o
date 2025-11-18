@@ -32,9 +32,11 @@ export default function MenuSearch({ restaurantId, onItemSelect }: MenuSearchPro
           value={query}
           onChange={(e) => {
             setQuery(e.target.value)
-            setShowResults(true)
+            if (e.target.value.length >= 2) {
+              setShowResults(true)
+            }
           }}
-          onFocus={() => setShowResults(true)}
+          onFocus={() => query.length >= 2 && setShowResults(true)}
           className="pl-10 pr-10"
         />
         {query && (

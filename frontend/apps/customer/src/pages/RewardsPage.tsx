@@ -6,7 +6,7 @@ import { Badge } from '@/packages/ui/components/badge'
 import { Skeleton } from '@/packages/ui/components/skeleton'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/packages/ui/components/dialog'
 // Using native select
-import { Trophy, Gift, TrendingUp, History, Sparkles } from 'lucide-react'
+import { Trophy, Gift, History } from 'lucide-react'
 import apiClient from '@/packages/api/client'
 import { formatCurrency, formatDate } from '@/packages/utils/format'
 import { useNavigate } from 'react-router-dom'

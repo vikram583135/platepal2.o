@@ -1,4 +1,4 @@
-import { WifiOff, Wifi } from 'lucide-react'
+import { WifiOff } from 'lucide-react'
 import { useOffline } from '../hooks/useOffline'
 
 export default function OfflineBanner() {

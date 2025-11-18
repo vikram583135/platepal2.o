@@ -200,27 +200,56 @@ _dev_origins = DEFAULT_CORS_ALLOWED_ORIGINS if DEBUG else []
 CORS_ALLOWED_ORIGINS = list(dict.fromkeys(CORS_ALLOWED_ORIGINS + _dev_origins))
 CORS_ALLOW_CREDENTIALS = True
 
-# Channels (WebSocket)
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [(env('REDIS_HOST', default='localhost'), env.int('REDIS_PORT', default=6379))],
+"""
+Redis usage toggle for development
+
+By default, when DEBUG=True, we avoid requiring a local Redis instance
+by switching Channels and Django cache to in-memory backends. To force
+Redis in development, set USE_REDIS=1 in backend/.env.
+"""
+USE_REDIS = env.bool('USE_REDIS', default=not DEBUG)
+
+if USE_REDIS:
+    # Channels (WebSocket) via Redis
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                "hosts": [(env('REDIS_HOST', default='localhost'), env.int('REDIS_PORT', default=6379))],
+            },
         },
-    },
-}
-
-# Redis Cache
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': f"redis://{env('REDIS_HOST', default='localhost')}:{env.int('REDIS_PORT', default=6379)}/1",
     }
-}
 
-# Celery Configuration
-CELERY_BROKER_URL = f"redis://{env('REDIS_HOST', default='localhost')}:{env.int('REDIS_PORT', default=6379)}/0"
-CELERY_RESULT_BACKEND = f"redis://{env('REDIS_HOST', default='localhost')}:{env.int('REDIS_PORT', default=6379)}/0"
+    # Redis Cache
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': f"redis://{env('REDIS_HOST', default='localhost')}:{env.int('REDIS_PORT', default=6379)}/1",
+        }
+    }
+
+    # Celery over Redis
+    CELERY_BROKER_URL = f"redis://{env('REDIS_HOST', default='localhost')}:{env.int('REDIS_PORT', default=6379)}/0"
+    CELERY_RESULT_BACKEND = f"redis://{env('REDIS_HOST', default='localhost')}:{env.int('REDIS_PORT', default=6379)}/0"
+else:
+    # Channels (WebSocket) in-memory for dev
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        }
+    }
+
+    # In-memory cache for dev (used by rate limiting, etc.)
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'platepal-dev-locmem',
+        }
+    }
+
+    # Celery in-memory (no external broker needed in dev)
+    CELERY_BROKER_URL = 'memory://'
+    CELERY_RESULT_BACKEND = 'cache+memory://'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'

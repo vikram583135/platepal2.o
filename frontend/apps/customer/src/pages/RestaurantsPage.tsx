@@ -1,14 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import apiClient from '@/packages/api/client'
-import { Restaurant } from '@/packages/types'
 import { Card, CardContent } from '@/packages/ui/components/card'
 import { Button } from '@/packages/ui/components/button'
 import { Skeleton } from '@/packages/ui/components/skeleton'
-import SkeletonLoader from '../components/SkeletonLoader'
-import PullToRefresh from '../components/PullToRefresh'
-import { Star, Clock, MapPin, Filter, X } from 'lucide-react'
+import { Star, Clock, MapPin, Filter } from 'lucide-react'
 import { formatCurrency } from '@/packages/utils/format'
 import RestaurantFilters from '../components/RestaurantFilters'
 
@@ -101,7 +98,7 @@ export default function RestaurantsPage() {
     return params
   }
 
-  const { data: restaurants, isLoading, error } = useQuery<Restaurant[]>({
+  const { data: restaurants, isLoading, error } = useQuery({
     queryKey: ['restaurants', buildQueryParams()],
     queryFn: async () => {
       const params = buildQueryParams()
@@ -198,7 +195,11 @@ export default function RestaurantsPage() {
         <div className={showFilters || activeFiltersCount > 0 ? 'lg:col-span-3' : 'lg:col-span-4'}>
           {!restaurants || restaurants.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-500 text-lg mb-4">No restaurants found.</p>
+              <p className="text-gray-500 text-lg mb-4">
+                {searchParams.get('search') 
+                  ? `No restaurants found for "${searchParams.get('search')}"` 
+                  : 'No restaurants found.'}
+              </p>
               {activeFiltersCount > 0 && (
                 <Button variant="outline" onClick={() => handleFiltersChange({
                   cuisines: [],
@@ -219,7 +220,7 @@ export default function RestaurantsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {restaurants.map((restaurant) => {
+              {restaurants.map((restaurant: any) => {
                 const ratingValue =
                   typeof restaurant.rating === 'number'
                     ? restaurant.rating

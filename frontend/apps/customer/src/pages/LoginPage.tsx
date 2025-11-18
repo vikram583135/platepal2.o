@@ -11,19 +11,39 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login } = useAuthStore()
+  const { login, loginAsGuest } = useAuthStore()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    
+    // Client-side validation
+    if (!email.trim()) {
+      setError('Email is required')
+      return
+    }
+    
+    if (!password) {
+      setError('Password is required')
+      return
+    }
+    
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email.trim())) {
+      setError('Please enter a valid email address')
+      return
+    }
+    
     setLoading(true)
 
     try {
-      await login(email, password)
+      await login(email.trim(), password)
       navigate('/')
     } catch (err: any) {
-      setError(err.message || err.response?.data?.error || 'Login failed')
+      const errorMessage = err.message || err.response?.data?.error || err.response?.data?.detail || 'Login failed. Please check your credentials.'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -52,11 +72,13 @@ export default function LoginPage() {
               </label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@example.com"
+                autoComplete="email"
               />
             </div>
 
@@ -66,11 +88,13 @@ export default function LoginPage() {
               </label>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••"
+                autoComplete="current-password"
               />
             </div>
 
@@ -79,6 +103,27 @@ export default function LoginPage() {
             </Button>
 
             <SocialLoginButtons onError={setError} />
+
+            <div className="relative my-2">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200" />
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="px-2 bg-white text-gray-500">Or</span>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                loginAsGuest()
+                navigate('/')
+              }}
+            >
+              Continue as Guest
+            </Button>
 
             <p className="text-center text-sm text-gray-600">
               Don't have an account?{' '}

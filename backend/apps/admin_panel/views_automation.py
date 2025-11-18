@@ -12,18 +12,31 @@ from .models_automation import (
 )
 from .permissions import IsAdminUser, HasAdminPermission
 from .models import AuditLogEntry
+from .serializers import (
+    AutomationRuleSerializer, ScheduledJobSerializer, WebhookSerializer
+)
 
 
 class AutomationRuleViewSet(viewsets.ModelViewSet):
     """Automation rule management"""
     queryset = AutomationRule.objects.all()
+    serializer_class = AutomationRuleSerializer
     permission_classes = [IsAdminUser, HasAdminPermission(permission_codename='admin.automation.manage')]
     
     def get_queryset(self):
+        from .utils import validate_query_param
+        
         queryset = AutomationRule.objects.all()
-        is_active = self.request.query_params.get('is_active')
-        if is_active is not None:
-            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        try:
+            is_active = validate_query_param(
+                self.request.query_params.get('is_active'),
+                'is_active',
+                param_type=bool
+            )
+            if is_active is not None:
+                queryset = queryset.filter(is_active=is_active)
+        except Exception:
+            pass
         return queryset.order_by('-priority', 'name')
     
     def perform_create(self, serializer):
@@ -72,6 +85,7 @@ class AutomationRuleViewSet(viewsets.ModelViewSet):
 class ScheduledJobViewSet(viewsets.ModelViewSet):
     """Scheduled job management"""
     queryset = ScheduledJob.objects.all()
+    serializer_class = ScheduledJobSerializer
     permission_classes = [IsAdminUser, HasAdminPermission(permission_codename='admin.jobs.manage')]
     
     def get_queryset(self):
@@ -112,6 +126,7 @@ class ScheduledJobViewSet(viewsets.ModelViewSet):
 class WebhookViewSet(viewsets.ModelViewSet):
     """Webhook management"""
     queryset = Webhook.objects.all()
+    serializer_class = WebhookSerializer
     permission_classes = [IsAdminUser, HasAdminPermission(permission_codename='admin.webhooks.manage')]
     
     def get_queryset(self):

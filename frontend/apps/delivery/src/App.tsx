@@ -12,9 +12,16 @@ import AnalyticsPage from './pages/AnalyticsPage'
 import SettingsPage from './pages/SettingsPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user, logout } = useAuthStore()
   
   if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+  
+  // Validate that user has DELIVERY role (defense-in-depth)
+  if (user && user.role !== 'DELIVERY') {
+    // Clear auth and redirect to login
+    logout()
     return <Navigate to="/login" replace />
   }
   

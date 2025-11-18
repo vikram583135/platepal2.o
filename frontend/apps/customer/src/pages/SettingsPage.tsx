@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/packages/ui/componen
 import { Button } from '@/packages/ui/components/button'
 // Using native HTML elements for switches and labels
 import { Input } from '@/packages/ui/components/input'
-import { Moon, Sun, Globe, Bell, Lock, Cookie } from 'lucide-react'
+import { Moon, Sun, Globe, Bell, Lock, Cookie, Shield, Key } from 'lucide-react'
 import apiClient from '@/packages/api/client'
 
 export default function SettingsPage() {
@@ -59,6 +59,10 @@ export default function SettingsPage() {
       document.documentElement.classList.remove('dark')
     }
     localStorage.setItem('theme', theme)
+    // Persist preference to backend when available
+    apiClient
+      .patch('/auth/users/preferences/', { theme })
+      .catch(() => {})
   }, [theme])
 
   const handleNotificationChange = (key: string, value: boolean) => {
@@ -145,6 +149,9 @@ export default function SettingsPage() {
                     onChange={(e) => {
                       setLanguage(e.target.value)
                       localStorage.setItem('language', e.target.value)
+                      apiClient
+                        .patch('/auth/users/preferences/', { language: e.target.value })
+                        .catch(() => {})
                     }}
                   />
                   <span>{lang.name}</span>
@@ -321,6 +328,19 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Security Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lock className="w-5 h-5" />
+              Security
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <TwoFactorAuthSection />
+          </CardContent>
+        </Card>
+
         {/* Privacy Settings */}
         <Card>
           <CardHeader>
@@ -413,6 +433,114 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+    </div>
+  )
+}
+
+function TwoFactorAuthSection() {
+  const queryClient = useQueryClient()
+
+  const { data: twoFactorAuth, isLoading: authLoading } = useQuery({
+    queryKey: ['two-factor-auth'],
+    queryFn: async () => {
+      const response = await apiClient.get('/auth/two-factor-auth/')
+      return response.data.results?.[0] || response.data
+    },
+  })
+
+  const toggleTwoFactorMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      if (twoFactorAuth?.id) {
+        const response = await apiClient.patch(`/auth/two-factor-auth/${twoFactorAuth.id}/`, {
+          is_enabled: enabled,
+          method: enabled ? 'EMAIL' : 'NONE',
+        })
+        return response.data
+      } else {
+        const response = await apiClient.post('/auth/two-factor-auth/', {
+          is_enabled: enabled,
+          method: enabled ? 'EMAIL' : 'NONE',
+        })
+        return response.data
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['two-factor-auth'] })
+    },
+  })
+
+  const generateBackupCodesMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiClient.post('/auth/two-factor-auth/generate-backup-codes/', {})
+      return response.data
+    },
+  })
+
+  const handleToggle2FA = async (enabled: boolean) => {
+    try {
+      await toggleTwoFactorMutation.mutateAsync(enabled)
+    } catch (error: any) {
+      alert(error.response?.data?.detail || 'Failed to update 2FA settings')
+    }
+  }
+
+  const handleGenerateBackupCodes = async () => {
+    try {
+      const result = await generateBackupCodesMutation.mutateAsync()
+      alert(`Backup codes generated: ${result.backup_codes?.join(', ') || 'Check console'}`)
+    } catch (error: any) {
+      alert(error.response?.data?.detail || 'Failed to generate backup codes')
+    }
+  }
+
+  if (authLoading) {
+    return <div className="text-sm text-gray-600">Loading security settings...</div>
+  }
+
+  const isEnabled = twoFactorAuth?.is_enabled || false
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div>
+          <h4 className="font-semibold flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            Two-Factor Authentication
+          </h4>
+          <p className="text-sm text-gray-600">
+            Add an extra layer of security to your account
+          </p>
+        </div>
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isEnabled}
+            onChange={(e) => handleToggle2FA(e.target.checked)}
+            disabled={toggleTwoFactorMutation.isPending}
+            className="sr-only peer"
+          />
+          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+        </label>
+      </div>
+
+      {isEnabled && (
+        <div className="pl-6 border-l-2 border-gray-200 space-y-3">
+          <div className="text-sm">
+            <p className="font-medium">Method: {twoFactorAuth?.method || 'Email'}</p>
+            <p className="text-gray-600">You'll receive a code via {twoFactorAuth?.method?.toLowerCase() || 'email'} when signing in</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGenerateBackupCodes}
+            disabled={generateBackupCodesMutation.isPending}
+            className="flex items-center gap-2"
+          >
+            <Key className="w-4 h-4" />
+            Generate Backup Codes
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

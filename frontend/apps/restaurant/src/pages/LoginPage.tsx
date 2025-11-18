@@ -55,17 +55,6 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-2 rounded text-sm mb-4">
-            <strong>Demo:</strong> Use restaurant@platepal.com / restaurant123 or check{' '}
-            <a 
-              href="https://github.com/your-repo/docs/RESTAURANT_CREDENTIALS.md" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="underline font-semibold"
-            >
-              docs/RESTAURANT_CREDENTIALS.md
-            </a>
-          </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">

@@ -6,7 +6,7 @@ import { Button } from '@/packages/ui/components/button'
 // import { Textarea } from '@/packages/ui/components/textarea' // Using textarea element directly
 import { Badge } from '@/packages/ui/components/badge'
 import { Skeleton } from '@/packages/ui/components/skeleton'
-import { Send, CheckCircle, Clock, XCircle } from 'lucide-react'
+import { Send } from 'lucide-react'
 import apiClient from '@/packages/api/client'
 import { formatDate } from '@/packages/utils/format'
 

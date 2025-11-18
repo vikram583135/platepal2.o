@@ -10,6 +10,7 @@ from django.utils import timezone
 from apps.restaurants.models import MenuCategory, MenuItem, Promotion, Restaurant
 from .permissions import IsAdminUser, HasAdminPermission
 from .models import AuditLogEntry
+from .serializers import PromotionSerializer
 
 
 class CatalogManagementViewSet(viewsets.ViewSet):
@@ -101,6 +102,7 @@ class CatalogManagementViewSet(viewsets.ViewSet):
 class CampaignManagementViewSet(viewsets.ModelViewSet):
     """Campaign management"""
     queryset = Promotion.objects.all()
+    serializer_class = PromotionSerializer
     permission_classes = [IsAdminUser, HasAdminPermission(permission_codename='admin.campaign.manage')]
     
     def get_queryset(self):

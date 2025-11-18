@@ -3,12 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import apiClient from '@/packages/api/client'
 import { Order } from '@/packages/types'
-import { Card, CardContent, CardHeader, CardTitle } from '@/packages/ui/components/card'
+import { Card, CardContent } from '@/packages/ui/components/card'
 import { Badge } from '@/packages/ui/components/badge'
 import { Button } from '@/packages/ui/components/button'
 import { Skeleton } from '@/packages/ui/components/skeleton'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/packages/ui/components/dialog'
-import { MapPin, Package, RefreshCw, Download, FileText, CreditCard, Star } from 'lucide-react'
+import { MapPin, RefreshCw, Download, CreditCard, Star } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/packages/utils/format'
 import ReviewModal from '../components/ReviewModal'
 
@@ -63,6 +63,10 @@ export default function OrderDetailPage() {
     onSuccess: (data) => {
       navigate(`/orders/${data.id}`)
     },
+    onError: (error: any) => {
+      const msg = error.response?.data?.detail || 'Failed to repeat order'
+      alert(msg)
+    },
   })
 
   const handleDownloadInvoice = () => {
@@ -116,7 +120,13 @@ ${invoice.transaction_id ? `Transaction ID: ${invoice.transaction_id}` : ''}
   }
 
   if (!order) {
-    return <div>Order not found</div>
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded">
+          Order not found or you don't have permission to view it.
+        </div>
+      </div>
+    )
   }
 
   const isActiveOrder = order.status && !['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(order.status)
@@ -317,7 +327,7 @@ ${invoice.transaction_id ? `Transaction ID: ${invoice.transaction_id}` : ''}
       {order && (
         <ReviewModal
           orderId={order.id}
-          restaurantId={order.restaurant?.id || order.restaurant_id}
+          restaurantId={order.restaurant?.id || 0}
           isOpen={showReviewModal}
           onClose={() => setShowReviewModal(false)}
           onSuccess={() => {

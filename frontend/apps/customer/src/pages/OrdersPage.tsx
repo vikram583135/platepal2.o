@@ -1,16 +1,12 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import apiClient from '@/packages/api/client'
-import { Order } from '@/packages/types'
 import { Card, CardContent } from '@/packages/ui/components/card'
 import { Badge } from '@/packages/ui/components/badge'
 import { Button } from '@/packages/ui/components/button'
 import { Skeleton } from '@/packages/ui/components/skeleton'
-import SkeletonLoader from '../components/SkeletonLoader'
-import PullToRefresh from '../components/PullToRefresh'
-import { RefreshCw, Download } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/packages/utils/format'
-import { useNavigate } from 'react-router-dom'
 
 const statusColors: Record<string, 'default' | 'secondary' | 'destructive'> = {
   PENDING: 'secondary',
@@ -24,7 +20,7 @@ const statusColors: Record<string, 'default' | 'secondary' | 'destructive'> = {
 export default function OrdersPage() {
   const navigate = useNavigate()
   
-  const { data: orders, isLoading } = useQuery<Order[]>({
+  const { data: orders, isLoading, error } = useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
       const response = await apiClient.get('/orders/orders/')
@@ -51,13 +47,24 @@ export default function OrdersPage() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-3xl font-bold mb-8">My Orders</h1>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          Failed to load orders. Please try again later.
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="text-3xl font-bold mb-8">My Orders</h1>
 
       {orders && orders.length > 0 ? (
         <div className="space-y-4">
-          {orders.map((order) => (
+          {orders.map((order: any) => (
             <Card key={order.id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
                 <div className="flex justify-between items-start mb-4">

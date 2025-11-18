@@ -115,6 +115,7 @@ python manage.py createsuperuser
 9. Seed sample data:
 ```bash
 python manage.py seed_data
+python manage.py seed_admin_data
 ```
 
 10. Run development server:

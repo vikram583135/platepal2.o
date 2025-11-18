@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Card, CardContent, CardHeader, CardTitle } from '@/packages/ui/components/card'
+import { Card, CardContent } from '@/packages/ui/components/card'
 import { Button } from '@/packages/ui/components/button'
 import { Badge } from '@/packages/ui/components/badge'
 import { Skeleton } from '@/packages/ui/components/skeleton'

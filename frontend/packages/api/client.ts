@@ -62,10 +62,11 @@ class ApiClient {
               return this.client(originalRequest)
             }
           } catch (refreshError) {
-            // Refresh failed, redirect to login
+            // Refresh failed, clear tokens
             localStorage.removeItem('access_token')
             localStorage.removeItem('refresh_token')
-            window.location.href = '/login'
+            // Don't redirect here - let the component handle navigation
+            // This prevents issues with React Router
             return Promise.reject(refreshError)
           }
         }

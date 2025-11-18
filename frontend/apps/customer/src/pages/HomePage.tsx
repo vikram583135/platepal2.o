@@ -13,8 +13,6 @@ import { useCartStore } from '../stores/cartStore'
 import { formatCurrency } from '@/packages/utils/format'
 import SkeletonLoader from '../components/SkeletonLoader'
 import PullToRefresh from '../components/PullToRefresh'
-import { RestaurantCache } from '../utils/cache'
-import { useOffline } from '../hooks/useOffline'
 
 export default function HomePage() {
   const navigate = useNavigate()
@@ -78,11 +76,11 @@ export default function HomePage() {
   const handleSearch = (query?: string) => {
     const q = query || searchQuery
     if (q.trim()) {
-      // Save search
+      // Save search (non-blocking)
       apiClient.post('/restaurants/search/save/', {
         query: q.trim(),
         type: 'general',
-      }).catch(() => {}) // Ignore errors
+      }).catch(() => {}) // Ignore errors for better UX
       
       navigate(`/restaurants?search=${encodeURIComponent(q.trim())}`)
     } else {
@@ -128,7 +126,7 @@ export default function HomePage() {
                   <input
                     type="text"
                     placeholder="Enter your location"
-                    value={location?.address || ''}
+                    value={location?.address || 'Detecting location...'}
                     readOnly
                     onClick={() => setShowLocationPicker(true)}
                     className="flex-1 outline-none text-gray-900 cursor-pointer"

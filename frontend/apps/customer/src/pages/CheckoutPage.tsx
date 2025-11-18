@@ -85,7 +85,7 @@ export default function CheckoutPage() {
           })
           
           // Mock payment confirmation (in production, integrate with gateway)
-          const confirmResponse = await apiClient.post('/payments/confirm_payment/', {
+          await apiClient.post('/payments/confirm_payment/', {
             order_id: orderData.id,
             payment_intent_id: paymentResponse.data.payment_intent_id,
             transaction_id: `TXN_${Date.now()}`,
@@ -94,9 +94,9 @@ export default function CheckoutPage() {
           
           clearCart()
           navigate(`/orders/${orderData.id}`)
-        } catch (error) {
-          console.error('Payment processing failed:', error)
-          alert('Payment processing failed. Please try again.')
+        } catch (error: any) {
+          const errorMsg = error.response?.data?.detail || error.message || 'Payment processing failed'
+          alert(`${errorMsg}. Please try again.`)
         }
       } else {
         clearCart()
@@ -104,8 +104,6 @@ export default function CheckoutPage() {
       }
     },
     onError: (error: any) => {
-      console.error('Order creation failed:', error)
-      
       // Extract error message from various possible formats
       let errorMessage = 'Order creation failed. Please try again.'
       

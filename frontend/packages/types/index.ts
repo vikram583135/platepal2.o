@@ -14,6 +14,7 @@ export interface User {
   is_email_verified: boolean
   is_phone_verified: boolean
   date_joined: string
+  profile_photo_url?: string
 }
 
 export interface Address {
@@ -47,6 +48,8 @@ export interface Restaurant {
   cover_image?: string
   logo_image_url?: string
   hero_image_url?: string
+  cost_for_two?: number
+  is_pure_veg?: boolean
 }
 
 export interface MenuItem {
@@ -55,6 +58,7 @@ export interface MenuItem {
   description?: string
   price: number
   image?: string
+  image_url?: string
   is_available: boolean
   inventory_count?: number
   preparation_time_minutes: number

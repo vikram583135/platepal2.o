@@ -14,10 +14,12 @@ from apps.restaurants.models import (
     MenuItem,
     Promotion,
     RestaurantSettings,
+    RestaurantAlert,
 )
 from apps.orders.models import Order, OrderItem, Review
 from apps.inventory.models import InventoryItem
 from apps.accounts.models import Address
+from apps.payments.models import Payment
 
 User = get_user_model()
 
@@ -107,6 +109,12 @@ class Command(BaseCommand):
             
             # Seed promotions
             self._seed_promotions(restaurant)
+            
+            # Seed payments for completed orders
+            self._seed_payments(restaurant)
+            
+            # Seed alerts
+            self._seed_alerts(restaurant)
         
         self.stdout.write(self.style.SUCCESS('\n[SUCCESS] Mock data seeding completed!'))
 
@@ -520,4 +528,195 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.ERROR(f'  Error creating promotion: {str(e)}'))
         
         self.stdout.write(f'  [OK] Created {promotions_created} promotions')
+
+    def _seed_payments(self, restaurant):
+        """Seed payments for delivered orders"""
+        delivered_orders = Order.objects.filter(
+            restaurant=restaurant,
+            status=Order.Status.DELIVERED,
+            is_deleted=False
+        ).exclude(payment__isnull=False)  # Exclude orders that already have payments
+        
+        orders_to_pay = list(delivered_orders[:random.randint(30, 50)])
+        payments_created = 0
+        
+        for order in orders_to_pay:
+            try:
+                # Random payment method
+                method_type = random.choice([
+                    Payment.PaymentMethodType.CARD,
+                    Payment.PaymentMethodType.UPI,
+                    Payment.PaymentMethodType.WALLET,
+                    Payment.PaymentMethodType.CASH,
+                ])
+                
+                # Generate unique transaction ID
+                transaction_id = f"TXN{order.id}{random.randint(100000, 999999)}"
+                
+                # Most payments are completed, some might be pending/processing
+                status_weights = {
+                    Payment.Status.COMPLETED: 0.85,
+                    Payment.Status.PROCESSING: 0.1,
+                    Payment.Status.PENDING: 0.05,
+                }
+                status = random.choices(list(status_weights.keys()), weights=list(status_weights.values()))[0]
+                
+                # Set processed_at for completed payments
+                processed_at = None
+                if status == Payment.Status.COMPLETED:
+                    # Processed within 1-5 minutes of order creation
+                    processed_at = order.created_at + timedelta(minutes=random.randint(1, 5))
+                
+                Payment.objects.create(
+                    order=order,
+                    user=order.customer,
+                    method_type=method_type,
+                    amount=order.total_amount,
+                    currency='INR',
+                    transaction_id=transaction_id,
+                    status=status,
+                    processed_at=processed_at,
+                    gateway_response={
+                        'gateway': 'mock_gateway',
+                        'payment_id': transaction_id,
+                        'status': 'success' if status == Payment.Status.COMPLETED else 'pending',
+                    },
+                    created_at=order.created_at,
+                )
+                payments_created += 1
+                
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'  Error creating payment: {str(e)}'))
+        
+        self.stdout.write(f'  [OK] Created {payments_created} payments')
+
+    def _seed_alerts(self, restaurant):
+        """Seed restaurant alerts"""
+        existing_alerts = RestaurantAlert.objects.filter(restaurant=restaurant, is_deleted=False).count()
+        if existing_alerts >= 10:
+            self.stdout.write(f'  ✓ Already has {existing_alerts} alerts')
+            return
+        
+        alerts_created = 0
+        
+        # Get some orders for order-related alerts
+        orders = list(Order.objects.filter(restaurant=restaurant, is_deleted=False)[:5])
+        
+        # Alert templates
+        alert_templates = [
+            {
+                'alert_type': RestaurantAlert.AlertType.INVENTORY_LOW,
+                'severity': RestaurantAlert.Severity.WARNING,
+                'titles': [
+                    'Low Stock Alert',
+                    'Inventory Running Low',
+                    'Restock Required',
+                ],
+                'messages': [
+                    'Some items are running low on stock. Please restock soon.',
+                    'Inventory levels are below threshold for multiple items.',
+                    'Consider restocking to avoid running out.',
+                ],
+            },
+            {
+                'alert_type': RestaurantAlert.AlertType.NEW_REVIEW,
+                'severity': RestaurantAlert.Severity.INFO,
+                'titles': [
+                    'New Customer Review',
+                    'Review Received',
+                    'Customer Feedback',
+                ],
+                'messages': [
+                    'You have received a new review from a customer.',
+                    'A customer has left feedback on their recent order.',
+                    'New review available for viewing.',
+                ],
+            },
+            {
+                'alert_type': RestaurantAlert.AlertType.SLA_BREACH,
+                'severity': RestaurantAlert.Severity.CRITICAL,
+                'titles': [
+                    'SLA Breach Warning',
+                    'Order Taking Too Long',
+                    'Delivery Time Exceeded',
+                ],
+                'messages': [
+                    'An order is taking longer than expected. Please expedite.',
+                    'Order preparation time has exceeded SLA threshold.',
+                    'Urgent: Order delivery time is at risk.',
+                ],
+            },
+            {
+                'alert_type': RestaurantAlert.AlertType.PAYOUT,
+                'severity': RestaurantAlert.Severity.INFO,
+                'titles': [
+                    'Payout Processed',
+                    'Payment Received',
+                    'Settlement Complete',
+                ],
+                'messages': [
+                    'Your weekly payout has been processed successfully.',
+                    'Payment for recent orders has been transferred.',
+                    'Settlement cycle completed. Check your account.',
+                ],
+            },
+            {
+                'alert_type': RestaurantAlert.AlertType.SYSTEM,
+                'severity': RestaurantAlert.Severity.INFO,
+                'titles': [
+                    'System Update',
+                    'Maintenance Notice',
+                    'Feature Available',
+                ],
+                'messages': [
+                    'New features are now available in your dashboard.',
+                    'System maintenance scheduled for tonight.',
+                    'Update: New menu management tools available.',
+                ],
+            },
+        ]
+        
+        # Create 5-10 alerts
+        for i in range(random.randint(5, 10)):
+            try:
+                template = random.choice(alert_templates)
+                order = random.choice(orders) if orders and random.random() < 0.3 else None
+                
+                # Some alerts are read, some are unread
+                is_read = random.random() < 0.4  # 40% are read
+                read_at = timezone.now() - timedelta(hours=random.randint(1, 24)) if is_read else None
+                
+                # Some alerts are resolved
+                resolved_at = None
+                if is_read and random.random() < 0.3:  # 30% of read alerts are resolved
+                    resolved_at = read_at + timedelta(minutes=random.randint(10, 60))
+                
+                # Random creation time (last 7 days)
+                created_at = timezone.now() - timedelta(
+                    days=random.randint(0, 7),
+                    hours=random.randint(0, 23)
+                )
+                
+                RestaurantAlert.objects.create(
+                    restaurant=restaurant,
+                    order=order,
+                    alert_type=template['alert_type'],
+                    severity=template['severity'],
+                    title=random.choice(template['titles']),
+                    message=random.choice(template['messages']),
+                    is_read=is_read,
+                    read_at=read_at,
+                    resolved_at=resolved_at,
+                    metadata={
+                        'source': 'system',
+                        'auto_generated': True,
+                    },
+                    created_at=created_at,
+                )
+                alerts_created += 1
+                
+            except Exception as e:
+                self.stdout.write(self.style.ERROR(f'  Error creating alert: {str(e)}'))
+        
+        self.stdout.write(f'  [OK] Created {alerts_created} alerts')
 
