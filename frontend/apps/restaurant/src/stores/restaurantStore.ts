@@ -22,17 +22,34 @@ export const useRestaurantStore = create<RestaurantState>((set, get) => ({
   restaurants: [],
   selectedRestaurantId: null,
   setRestaurants: (restaurants) =>
-    set((state) => ({
-      restaurants,
-      selectedRestaurantId: state.selectedRestaurantId ?? restaurants[0]?.id ?? null,
-    })),
+    set((state) => {
+      // Auto-select first approved restaurant, or first restaurant if none approved
+      const approvedRestaurant = restaurants.find((r) => r.onboarding_status === 'APPROVED')
+      const restaurantToSelect = approvedRestaurant || restaurants[0]
+      const newSelectedId = state.selectedRestaurantId ?? restaurantToSelect?.id ?? null
+      
+      // Validate that the currently selected restaurant still exists in the new list
+      const selectedExists = newSelectedId && restaurants.some((r) => r.id === newSelectedId)
+      const finalSelectedId = selectedExists ? newSelectedId : (restaurantToSelect?.id ?? null)
+      
+      return {
+        restaurants,
+        selectedRestaurantId: finalSelectedId,
+      }
+    }),
   setSelectedRestaurant: (restaurantId) => {
     const restaurants = get().restaurants
     const exists = restaurants.find((restaurant) => restaurant.id === restaurantId)
     if (exists) {
       set({ selectedRestaurantId: restaurantId })
     } else {
-      console.warn(`Restaurant with ID ${restaurantId} not found in restaurant list`)
+      console.warn(`Restaurant with ID ${restaurantId} not found in restaurant list. Auto-selecting first available.`)
+      // Auto-select first approved restaurant, or first restaurant if none approved
+      const approvedRestaurant = restaurants.find((r) => r.onboarding_status === 'APPROVED')
+      const restaurantToSelect = approvedRestaurant || restaurants[0]
+      if (restaurantToSelect?.id) {
+        set({ selectedRestaurantId: restaurantToSelect.id })
+      }
     }
   },
   setOnlineStatus: (isOnline) =>

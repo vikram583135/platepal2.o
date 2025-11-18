@@ -11,9 +11,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, NotFound
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Q, Count, Sum, Avg, F
+from django.db import transaction
 from django.utils import timezone
 from django.core.cache import cache
 from django.shortcuts import get_object_or_404
@@ -554,11 +555,49 @@ class RestaurantDashboardView(APIView):
         qs = Restaurant.objects.filter(is_deleted=False).select_related('settings')
         if request.user.role != 'ADMIN':
             qs = qs.filter(owner=request.user)
+        
         if restaurant_id:
-            return get_object_or_404(qs, id=restaurant_id)
+            # Convert restaurant_id to integer with proper error handling
+            try:
+                restaurant_id = int(restaurant_id)
+            except (ValueError, TypeError):
+                # Invalid restaurant_id format, fall back to first restaurant
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f'Invalid restaurant_id format received: {restaurant_id}. Falling back to first restaurant.')
+                restaurant = qs.first()
+                if not restaurant:
+                    raise ValidationError({
+                        'error': 'No restaurants linked to this account.',
+                        'details': {'detail': 'Please complete restaurant onboarding first.'}
+                    })
+                return restaurant
+            
+            # Check if restaurant exists in the filtered queryset (i.e., belongs to user)
+            try:
+                restaurant = qs.get(id=restaurant_id)
+                return restaurant
+            except Restaurant.DoesNotExist:
+                # Restaurant doesn't exist or doesn't belong to user
+                # Silently fall back to user's first restaurant instead of throwing error
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f'Restaurant {restaurant_id} not found or not owned by user {request.user.id}. Falling back to first restaurant.')
+                restaurant = qs.first()
+                if not restaurant:
+                    raise ValidationError({
+                        'error': 'No restaurants linked to this account.',
+                        'details': {'detail': 'Please complete restaurant onboarding first.'}
+                    })
+                return restaurant
+        
+        # If no restaurant_id provided, get the first restaurant
         restaurant = qs.first()
         if not restaurant:
-            raise ValidationError('No restaurants linked to this account.')
+            raise ValidationError({
+                'error': 'No restaurants linked to this account.',
+                'details': {'detail': 'Please complete restaurant onboarding first.'}
+            })
         return restaurant
 
 
@@ -585,7 +624,28 @@ class RestaurantOnlineStatusView(APIView):
         if request.user.role != 'ADMIN':
             qs = qs.filter(owner=request.user)
         if restaurant_id:
-            return get_object_or_404(qs, id=restaurant_id)
+            try:
+                restaurant_id = int(restaurant_id)
+            except (ValueError, TypeError):
+                # Invalid restaurant_id format, fall back to first restaurant
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f'Invalid restaurant_id format received: {restaurant_id}. Falling back to first restaurant.')
+                restaurant = qs.first()
+                if not restaurant:
+                    raise ValidationError('No restaurants linked to this account.')
+                return restaurant
+            try:
+                return qs.get(id=restaurant_id)
+            except Restaurant.DoesNotExist:
+                # Restaurant doesn't exist or doesn't belong to user, fall back to first restaurant
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f'Restaurant {restaurant_id} not found or not owned by user {request.user.id}. Falling back to first restaurant.')
+                restaurant = qs.first()
+                if not restaurant:
+                    raise ValidationError('No restaurants linked to this account.')
+                return restaurant
         restaurant = qs.first()
         if not restaurant:
             raise ValidationError('No restaurants linked to this account.')

@@ -39,7 +39,7 @@ interface DashboardMetrics {
 
 export default function DashboardPage() {
   const queryClient = useQueryClient()
-  const { selectedRestaurantId } = useRestaurantStore()
+  const { selectedRestaurantId, restaurants, setSelectedRestaurant } = useRestaurantStore()
 
   console.log('DashboardPage render - selectedRestaurantId:', selectedRestaurantId)
 
@@ -49,6 +49,25 @@ export default function DashboardPage() {
       if (!selectedRestaurantId) {
         throw new Error('No restaurant selected')
       }
+      
+      // Validate that restaurant exists in user's restaurants list
+      const restaurantExists = restaurants.some((r: any) => r.id === selectedRestaurantId)
+      if (!restaurantExists && restaurants.length > 0) {
+        console.warn('Selected restaurant not in user\'s restaurants list, auto-selecting first available')
+        // Auto-select first approved restaurant or first restaurant
+        const approvedRestaurant = restaurants.find((r: any) => r.onboarding_status === 'APPROVED')
+        const restaurantToSelect = approvedRestaurant || restaurants[0]
+        if (restaurantToSelect?.id) {
+          setSelectedRestaurant(restaurantToSelect.id)
+          // Retry with the new restaurant
+          const response = await apiClient.get('/restaurants/dashboard/overview/', {
+            params: { restaurant_id: restaurantToSelect.id },
+          })
+          return response.data
+        }
+        throw new Error('No valid restaurant available')
+      }
+      
       const response = await apiClient.get('/restaurants/dashboard/overview/', {
         params: { restaurant_id: selectedRestaurantId },
       })
@@ -62,8 +81,21 @@ export default function DashboardPage() {
     refetchOnReconnect: true,
     retry: 1,
     retryDelay: 2000,
-    onError: (err) => {
+    onError: (err: any) => {
       console.error('Dashboard query error:', err)
+      // If 404 or 403 error, automatically select a valid restaurant
+      if ((err?.response?.status === 404 || err?.response?.status === 403) && restaurants.length > 0) {
+        const errorData = err.response?.data
+        const errorMessage = errorData?.error || errorData?.details?.detail || ''
+        if (errorMessage.includes('Restaurant not found') || errorMessage.includes('access denied') || errorMessage.includes('No Restaurant matches')) {
+          console.warn('Restaurant not found or access denied, auto-selecting first available restaurant')
+          const approvedRestaurant = restaurants.find((r: any) => r.onboarding_status === 'APPROVED')
+          const restaurantToSelect = approvedRestaurant || restaurants[0]
+          if (restaurantToSelect?.id) {
+            setSelectedRestaurant(restaurantToSelect.id)
+          }
+        }
+      }
     },
   })
 
@@ -135,11 +167,28 @@ export default function DashboardPage() {
   }
 
   if (!selectedRestaurantId) {
+    // If we have restaurants but none selected, show loading (auto-selection should happen soon)
+    if (restaurants.length > 0) {
+      return (
+        <div className="flex items-center justify-center min-h-screen bg-zomato-lightGray">
+          <div className="text-center">
+            <div className="animate-spin h-8 w-8 rounded-full border-2 border-zomato-red border-t-transparent mx-auto mb-4"></div>
+            <p className="text-zomato-gray">Loading your restaurant dashboard...</p>
+          </div>
+        </div>
+      )
+    }
+    // No restaurants at all, redirect handled by layout
     return (
       <div className="flex items-center justify-center min-h-screen bg-zomato-lightGray">
         <div className="text-center">
-          <p className="text-zomato-gray mb-4">Please select a restaurant to view the dashboard</p>
-          <p className="text-xs text-zomato-gray">Selected Restaurant ID: {selectedRestaurantId || 'None'}</p>
+          <p className="text-zomato-gray mb-4">No restaurants available. Please complete onboarding first.</p>
+          <Button
+            onClick={() => window.location.href = '/onboarding'}
+            className="bg-zomato-red hover:bg-zomato-darkRed text-white"
+          >
+            Go to Onboarding
+          </Button>
         </div>
       </div>
     )
@@ -158,17 +207,53 @@ export default function DashboardPage() {
 
   if (error) {
     console.error('Dashboard error:', error)
+    const errorResponse = (error as any)?.response
+    const errorData = errorResponse?.data
+    const errorMessage = errorData?.error || errorData?.details?.detail || (error instanceof Error ? error.message : 'An unexpected error occurred')
+    const is404 = errorResponse?.status === 404
+    const is403 = errorResponse?.status === 403
+    
+    // If it's a 404/403 and we have restaurants, the error handler should have already tried to auto-select
+    // Show a more user-friendly message
+    if ((is404 || is403) && restaurants.length > 0) {
+      return (
+        <div className="flex items-center justify-center min-h-screen bg-zomato-lightGray">
+          <div className="text-center max-w-md">
+            <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+            <p className="text-yellow-600 mb-2 font-semibold">Loading your restaurant dashboard...</p>
+            <p className="text-zomato-gray text-sm mb-4">
+              We're automatically selecting your restaurant. Please wait a moment.
+            </p>
+            <div className="animate-spin h-6 w-6 rounded-full border-2 border-yellow-500 border-t-transparent mx-auto"></div>
+          </div>
+        </div>
+      )
+    }
+    
     return (
       <div className="flex items-center justify-center min-h-screen bg-zomato-lightGray">
-        <div className="text-center">
+        <div className="text-center max-w-md">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <p className="text-red-600 mb-2">Failed to load dashboard</p>
+          <p className="text-red-600 mb-2 font-semibold">Failed to load dashboard</p>
           <p className="text-zomato-gray text-sm mb-4">
-            {error instanceof Error ? error.message : 'An unexpected error occurred'}
+            {errorMessage}
           </p>
-          {error && typeof error === 'object' && 'response' in error && (
-            <p className="text-xs text-zomato-gray">
-              {JSON.stringify((error as any).response?.data || {})}
+          {restaurants.length === 0 && (
+            <div className="mt-4">
+              <p className="text-sm text-zomato-gray mb-2">
+                No restaurants found. Please complete restaurant onboarding first.
+              </p>
+              <Button
+                onClick={() => window.location.href = '/onboarding'}
+                className="bg-zomato-red hover:bg-zomato-darkRed text-white"
+              >
+                Go to Onboarding
+              </Button>
+            </div>
+          )}
+          {!is404 && !is403 && errorResponse && (
+            <p className="text-xs text-zomato-gray mt-2">
+              Status: {errorResponse.status} {errorResponse.statusText}
             </p>
           )}
         </div>

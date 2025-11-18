@@ -25,9 +25,31 @@ export function RestaurantLayout() {
     refetchOnWindowFocus: false, // Disable refetch on window focus to avoid 429
   })
 
-  const { data: dashboardSnapshot } = useQuery({
+  const { data: dashboardSnapshot, error: dashboardError } = useQuery({
     queryKey: ['dashboard', selectedRestaurantId],
     queryFn: async () => {
+      if (!selectedRestaurantId) {
+        throw new Error('No restaurant selected')
+      }
+      
+      // Validate that restaurant exists in user's restaurants list
+      const restaurantExists = restaurants.some((r: any) => r.id === selectedRestaurantId)
+      if (!restaurantExists && restaurants.length > 0) {
+        console.warn('Selected restaurant not in user\'s restaurants list, auto-selecting first available')
+        // Auto-select first approved restaurant or first restaurant
+        const approvedRestaurant = restaurants.find((r: any) => r.onboarding_status === 'APPROVED')
+        const restaurantToSelect = approvedRestaurant || restaurants[0]
+        if (restaurantToSelect?.id) {
+          setSelectedRestaurant(restaurantToSelect.id)
+          // Retry with the new restaurant
+          const response = await apiClient.get('/restaurants/dashboard/overview/', {
+            params: { restaurant_id: restaurantToSelect.id },
+          })
+          return response.data
+        }
+        throw new Error('No valid restaurant available')
+      }
+      
       const response = await apiClient.get('/restaurants/dashboard/overview/', {
         params: { restaurant_id: selectedRestaurantId },
       })
@@ -36,6 +58,24 @@ export function RestaurantLayout() {
     enabled: Boolean(selectedRestaurantId),
     refetchOnWindowFocus: false, // Disable refetch on window focus to avoid 429
     refetchInterval: false, // Disable auto-refetch to avoid 429
+    retry: 1, // Retry once on error
+    retryDelay: 1000,
+    onError: (err: any) => {
+      console.error('Dashboard snapshot error:', err)
+      // If 404 or access denied error and we have restaurants, try to select a valid one
+      if ((err?.response?.status === 404 || err?.response?.status === 403) && restaurants.length > 0) {
+        const errorData = err.response?.data
+        const errorMessage = errorData?.error || errorData?.details?.detail || ''
+        if (errorMessage.includes('Restaurant not found') || errorMessage.includes('access denied') || errorMessage.includes('No Restaurant matches')) {
+          console.warn('Restaurant not found or access denied, auto-selecting first available restaurant')
+          const approvedRestaurant = restaurants.find((r: any) => r.onboarding_status === 'APPROVED')
+          const restaurantToSelect = approvedRestaurant || restaurants[0]
+          if (restaurantToSelect?.id) {
+            setSelectedRestaurant(restaurantToSelect.id)
+          }
+        }
+      }
+    },
   })
 
   const toggleOnlineMutation = useMutation({
@@ -78,17 +118,25 @@ export function RestaurantLayout() {
   })
 
   // Auto-select first restaurant if we have restaurants but none selected
+  // Also validate that selectedRestaurantId exists in restaurants list
   // Use useEffect to avoid calling setState during render
   // MUST be called before any conditional returns (Rules of Hooks)
   useEffect(() => {
-    if (!selectedRestaurantId && restaurants.length > 0) {
-      const approvedRestaurant = restaurants.find((r: any) => r.onboarding_status === 'APPROVED')
-      const restaurantToSelect = approvedRestaurant || restaurants[0]
-      if (restaurantToSelect?.id) {
-        setSelectedRestaurant(restaurantToSelect.id)
+    if (restaurants.length > 0) {
+      // Check if selected restaurant exists in the list
+      const selectedExists = selectedRestaurantId && restaurants.some((r: any) => r.id === selectedRestaurantId)
+      
+      if (!selectedRestaurantId || !selectedExists) {
+        // Select first approved restaurant, or first restaurant if none approved
+        const approvedRestaurant = restaurants.find((r: any) => r.onboarding_status === 'APPROVED')
+        const restaurantToSelect = approvedRestaurant || restaurants[0]
+        if (restaurantToSelect?.id) {
+          console.log('Auto-selecting restaurant:', restaurantToSelect.id, restaurantToSelect.name)
+          setSelectedRestaurant(restaurantToSelect.id)
+        }
       }
     }
-  }, [selectedRestaurantId, restaurants, setSelectedRestaurant])
+  }, [selectedRestaurantId, restaurants, setSelectedRestaurant, isLoading])
 
   useRestaurantSocket(selectedRestaurantId)
 
@@ -117,7 +165,6 @@ export function RestaurantLayout() {
           <TopBar
             restaurants={restaurants}
             selectedRestaurantId={selectedRestaurantId}
-            onChangeRestaurant={setSelectedRestaurant}
             isOnline={isOnline}
             toggleOnline={() => toggleOnlineMutation.mutate()}
             togglingOnline={toggleOnlineMutation.isPending}

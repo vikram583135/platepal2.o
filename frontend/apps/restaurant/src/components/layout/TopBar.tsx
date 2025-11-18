@@ -11,27 +11,24 @@ interface RestaurantOption {
 interface TopBarProps {
   restaurants: RestaurantOption[]
   selectedRestaurantId: number | null
-  onChangeRestaurant: (restaurantId: number) => void
   isOnline?: boolean
   toggleOnline: () => void
   togglingOnline: boolean
 }
 
-export function TopBar({ restaurants, selectedRestaurantId, onChangeRestaurant, isOnline, toggleOnline, togglingOnline }: TopBarProps) {
+export function TopBar({ restaurants, selectedRestaurantId, isOnline, toggleOnline, togglingOnline }: TopBarProps) {
+  // Get the selected restaurant name for display
+  const selectedRestaurant = restaurants.find((r) => r.id === selectedRestaurantId)
+  const restaurantDisplayName = selectedRestaurant 
+    ? `${selectedRestaurant.name}${selectedRestaurant.city ? ` • ${selectedRestaurant.city}` : ''}`
+    : 'Restaurant'
+
   return (
     <header className="flex flex-col gap-4 border-b border-slate-100 bg-white/70 backdrop-blur px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
       <div className="flex items-center gap-3">
-        <select
-          value={selectedRestaurantId ?? ''}
-          onChange={(event) => onChangeRestaurant(Number(event.target.value))}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm focus:border-primary-400 focus:outline-none"
-        >
-          {restaurants.map((restaurant) => (
-            <option key={restaurant.id} value={restaurant.id}>
-              {restaurant.name} {restaurant.city ? `• ${restaurant.city}` : ''}
-            </option>
-          ))}
-        </select>
+        <div className="px-3 py-2 text-sm font-medium text-slate-700">
+          {restaurantDisplayName}
+        </div>
         <div className={`rounded-full px-3 py-1 text-xs font-semibold ${isOnline ? 'bg-green-100 text-green-800' : 'bg-slate-200 text-slate-600'}`}>
           {isOnline ? 'Online' : 'Offline'}
         </div>
