@@ -103,7 +103,8 @@ export default function RestaurantsPage() {
     queryFn: async () => {
       const params = buildQueryParams()
       const queryString = new URLSearchParams(params).toString()
-      const response = await apiClient.get(`/restaurants/restaurants/${queryString ? `?${queryString}` : ''}`)
+      const url = queryString ? `/restaurants/restaurants/?${queryString}` : '/restaurants/restaurants/'
+      const response = await apiClient.get(url)
       return response.data.results || response.data || []
     },
   })

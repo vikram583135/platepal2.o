@@ -13,11 +13,32 @@ export function useCustomerSocket(customerId?: number | null) {
       return
     }
 
-    const socket = createWebSocket(getWebSocketUrl('customer', userId), accessToken)
+    // Check if WebSocket is enabled
+    const wsEnabled = (import.meta as any).env.VITE_WS_ENABLED !== 'false'
+    if (!wsEnabled) {
+      return // WebSocket is disabled, skip connection
+    }
+
+    let socket: ReturnType<typeof createWebSocket> | null = null
+    
+    try {
+      socket = createWebSocket(getWebSocketUrl('customer', userId), accessToken)
+    } catch (error) {
+      // WebSocket URL construction failed (e.g., disabled)
+      if (import.meta.env.DEV) {
+        console.warn('WebSocket is disabled or misconfigured')
+      }
+      return
+    }
+
     let isMounted = true
 
+    // Attempt WebSocket connection - it's optional, so failures are handled gracefully
     socket.connect().catch((error) => {
-      console.error('WebSocket connection failed', error)
+      // Only log in development - WebSocket is optional functionality
+      if (import.meta.env.DEV) {
+        console.warn('WebSocket connection failed (ASGI server may not be running). Real-time updates disabled, but the app will work normally.')
+      }
     })
 
     const invalidateOrders = () => {
@@ -117,7 +138,7 @@ export function useCustomerSocket(customerId?: number | null) {
     })
 
     return () => {
-      if (isMounted) {
+      if (isMounted && socket) {
         socket.disconnect()
         isMounted = false
       }

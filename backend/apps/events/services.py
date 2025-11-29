@@ -35,6 +35,13 @@ class EventService:
         Returns:
             Created Event instance
         """
+        # Ensure payload is JSON serializable
+        import json
+        from django.core.serializers.json import DjangoJSONEncoder
+        
+        if payload:
+            payload = json.loads(json.dumps(payload, cls=DjangoJSONEncoder))
+            
         event = Event.objects.create(
             event_id=uuid.uuid4(),
             type=event_type,

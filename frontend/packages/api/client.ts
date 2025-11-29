@@ -3,10 +3,10 @@
  */
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
+const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8000/api'
 
 // Log API URL in development
-if (import.meta.env.DEV) {
+if ((import.meta as any).env.DEV) {
   console.log('API Base URL:', API_BASE_URL)
 }
 

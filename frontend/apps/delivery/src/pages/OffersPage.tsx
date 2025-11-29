@@ -142,7 +142,7 @@ export default function OffersPage() {
                 <div key={rule.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div>
                     <p className="font-medium">
-                      Min Earnings: {formatUtils.formatCurrency(rule.min_earnings || 0, 'USD')}
+                      Min Earnings: {formatUtils.formatCurrency(rule.min_earnings || 0, 'INR')}
                     </p>
                     <p className="text-sm text-gray-600">
                       Max Distance: {rule.max_distance_km || '∞'} km
@@ -236,24 +236,24 @@ export default function OffersPage() {
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-sm text-gray-600">Total Earnings</span>
                         <span className="text-2xl font-bold text-green-600">
-                          {formatUtils.formatCurrency(offer.delivery.total_earnings || 0, 'USD')}
+                          {formatUtils.formatCurrency(offer.delivery.total_earnings || 0, 'INR')}
                         </span>
                       </div>
                       <div className="text-xs text-gray-500 space-y-1">
                         <div className="flex justify-between">
                           <span>Base Fee:</span>
-                          <span>{formatUtils.formatCurrency(offer.delivery.base_fee || 0, 'USD')}</span>
+                          <span>{formatUtils.formatCurrency(offer.delivery.base_fee || 0, 'INR')}</span>
                         </div>
                         {offer.delivery.distance_fee > 0 && (
                           <div className="flex justify-between">
                             <span>Distance Fee:</span>
-                            <span>{formatUtils.formatCurrency(offer.delivery.distance_fee || 0, 'USD')}</span>
+                            <span>{formatUtils.formatCurrency(offer.delivery.distance_fee || 0, 'INR')}</span>
                           </div>
                         )}
                         {offer.delivery.tip_amount > 0 && (
                           <div className="flex justify-between">
                             <span>Tip:</span>
-                            <span>{formatUtils.formatCurrency(offer.delivery.tip_amount || 0, 'USD')}</span>
+                            <span>{formatUtils.formatCurrency(offer.delivery.tip_amount || 0, 'INR')}</span>
                           </div>
                         )}
                       </div>
@@ -296,7 +296,7 @@ export default function OffersPage() {
                     <div>
                       <p className="font-medium">Order #{offer.delivery.order.order_number}</p>
                       <p className="text-sm text-gray-600">
-                        {formatUtils.formatCurrency(offer.delivery.total_earnings || 0, 'USD')}
+                        {formatUtils.formatCurrency(offer.delivery.total_earnings || 0, 'INR')}
                       </p>
                     </div>
                     <Badge variant="outline">

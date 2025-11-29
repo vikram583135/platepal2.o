@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import apiClient from '@/packages/api/client'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/packages/ui/components/card'
@@ -29,13 +29,15 @@ export default function MenuPage() {
     },
     enabled: Boolean(selectedRestaurantId),
     refetchOnWindowFocus: false, // Disable refetch on window focus to avoid 429
-    onSuccess: (data) => {
-      if (!activeMenuId && data?.menus?.length) {
-        setActiveMenuId(data.menus[0].id)
-        setActiveCategoryId(data.menus[0].categories?.[0]?.id ?? null)
-      }
-    },
   })
+
+  useEffect(() => {
+    const data = restaurantQuery.data as any
+    if (data && !activeMenuId && data.menus?.length) {
+      setActiveMenuId(data.menus[0].id)
+      setActiveCategoryId(data.menus[0].categories?.[0]?.id ?? null)
+    }
+  }, [restaurantQuery.data, activeMenuId])
 
   const toggleItemMutation = useMutation({
     mutationFn: async ({ itemId, data }: { itemId: number; data: Record<string, unknown> }) => {
@@ -60,7 +62,7 @@ export default function MenuPage() {
       if (!newItem.category) {
         throw new Error('Category is required')
       }
-      
+
       await apiClient.post('/restaurants/items/', {
         name: newItem.name.trim(),
         description: newItem.description.trim(),
@@ -82,7 +84,7 @@ export default function MenuPage() {
 
   const handleAddItem = () => {
     setFormError('')
-    
+
     if (!newItem.name.trim()) {
       setFormError('Item name is required')
       return
@@ -95,7 +97,7 @@ export default function MenuPage() {
       setFormError('Please select a category')
       return
     }
-    
+
     addItemMutation.mutate()
   }
 
@@ -174,201 +176,199 @@ export default function MenuPage() {
     )
   }
 
-  const menus = restaurantQuery.data?.menus ?? []
+  const menus = (restaurantQuery.data as any)?.menus ?? []
   const activeMenu = menus.find((menu: any) => menu.id === activeMenuId) ?? menus[0]
   const activeCategory = activeMenu?.categories?.find((category: any) => category.id === activeCategoryId) ?? activeMenu?.categories?.[0]
-  
+
   // Get all categories for dropdown
   const allCategories = menus.flatMap((menu: any) => menu.categories || [])
 
   return (
-    <div className="min-h-screen bg-zomato-lightGray p-6">
+    <div className="min-h-screen page-background p-6">
       <div className="space-y-6">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-zomato-dark">Menu Management</h1>
             <p className="text-sm text-zomato-gray mt-1">Manage your menu items, categories, and availability</p>
           </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="border-zomato-red text-zomato-red hover:bg-zomato-red hover:text-white">
-            Import CSV
-          </Button>
-          <Button variant="outline" className="border-zomato-red text-zomato-red hover:bg-zomato-red hover:text-white">
-            Export CSV
-          </Button>
-        </div>
-      </header>
+          <div className="flex gap-2">
+            <Button variant="outline" className="border-zomato-red text-zomato-red hover:bg-zomato-red hover:text-white">
+              Import CSV
+            </Button>
+            <Button variant="outline" className="border-zomato-red text-zomato-red hover:bg-zomato-red hover:text-white">
+              Export CSV
+            </Button>
+          </div>
+        </header>
 
-      <div className="grid gap-4 lg:grid-cols-4">
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle className="text-zomato-dark">Menus</CardTitle>
-            <CardDescription className="text-zomato-gray">Breakfast, Lunch, Cloud Kitchen…</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {menus.map((menu: any) => (
-              <button
-                key={menu.id}
-                className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${
-                  menu.id === activeMenu?.id
+        <div className="grid gap-4 lg:grid-cols-4">
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle className="text-zomato-dark">Menus</CardTitle>
+              <CardDescription className="text-zomato-gray">Breakfast, Lunch, Cloud Kitchen…</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {menus.map((menu: any) => (
+                <button
+                  key={menu.id}
+                  className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${menu.id === activeMenu?.id
                     ? 'border-zomato-red bg-zomato-red text-white'
-                    : 'border-gray-200 hover:bg-zomato-lightGray text-zomato-dark'
-                }`}
-                onClick={() => {
-                  setActiveMenuId(menu.id)
-                  setActiveCategoryId(menu.categories?.[0]?.id ?? null)
-                }}
-              >
-                {menu.name}
-              </button>
-            ))}
-          </CardContent>
-        </Card>
+                    : 'border-gray-200 hover:bg-red-50 text-zomato-dark'
+                    }`}
+                  onClick={() => {
+                    setActiveMenuId(menu.id)
+                    setActiveCategoryId(menu.categories?.[0]?.id ?? null)
+                  }}
+                >
+                  {menu.name}
+                </button>
+              ))}
+            </CardContent>
+          </Card>
 
-        <Card className="bg-white">
-          <CardHeader>
-            <CardTitle className="text-zomato-dark">Categories</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {activeMenu?.categories?.map((category: any) => (
-              <button
-                key={category.id}
-                className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${
-                  category.id === activeCategory?.id
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle className="text-zomato-dark">Categories</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {activeMenu?.categories?.map((category: any) => (
+                <button
+                  key={category.id}
+                  className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${category.id === activeCategory?.id
                     ? 'border-zomato-red bg-zomato-red text-white'
-                    : 'border-gray-200 hover:bg-zomato-lightGray text-zomato-dark'
-                }`}
-                onClick={() => setActiveCategoryId(category.id)}
-              >
-                {category.name}
-              </button>
-            ))}
-            {!activeMenu?.categories?.length && <p className="text-xs text-slate-500">No categories yet.</p>}
-          </CardContent>
-        </Card>
+                    : 'border-gray-200 hover:bg-red-50 text-zomato-dark'
+                    }`}
+                  onClick={() => setActiveCategoryId(category.id)}
+                >
+                  {category.name}
+                </button>
+              ))}
+              {!activeMenu?.categories?.length && <p className="text-xs text-slate-500">No categories yet.</p>}
+            </CardContent>
+          </Card>
 
-        <Card className="lg:col-span-2 bg-white">
-          <CardHeader>
-            <CardTitle className="text-zomato-dark">
-              {activeCategory ? `${activeCategory.name} items` : 'Items'}
-            </CardTitle>
-            <CardDescription className="text-zomato-gray">
-              {activeCategory?.description || 'Manage availability, prep time, and tags.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {activeCategory?.items?.map((item: any) => (
-              <div key={item.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      {item.image_url && (
-                        <img src={item.image_url} alt={item.name} className="w-12 h-12 rounded-lg object-cover" />
-                      )}
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-slate-900">{item.name}</p>
-                        <p className="text-xs text-slate-500">{item.description || 'No description'}</p>
+          <Card className="lg:col-span-2 bg-white">
+            <CardHeader>
+              <CardTitle className="text-zomato-dark">
+                {activeCategory ? `${activeCategory.name} items` : 'Items'}
+              </CardTitle>
+              <CardDescription className="text-zomato-gray">
+                {activeCategory?.description || 'Manage availability, prep time, and tags.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {activeCategory?.items?.map((item: any) => (
+                <div key={item.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        {item.image_url && (
+                          <img src={item.image_url} alt={item.name} className="w-12 h-12 rounded-lg object-cover" />
+                        )}
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-slate-900">{item.name}</p>
+                          <p className="text-xs text-slate-500">{item.description || 'No description'}</p>
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-semibold text-slate-800">₹{Number(item.price).toFixed(0)}</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingItem(item)}
+                      >
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        className={
+                          item.is_available
+                            ? 'bg-green-600 hover:bg-green-700 text-white'
+                            : 'bg-zomato-red hover:bg-zomato-darkRed text-white'
+                        }
+                        onClick={() => toggleItemMutation.mutate({ itemId: item.id, data: { is_available: !item.is_available } })}
+                      >
+                        {item.is_available ? 'Available' : 'Sold Out'}
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="font-semibold text-slate-800">₹{Number(item.price).toFixed(0)}</span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setEditingItem(item)}
-                    >
-                      <Edit className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      className={
-                        item.is_available
-                          ? 'bg-green-600 hover:bg-green-700 text-white'
-                          : 'bg-zomato-red hover:bg-zomato-darkRed text-white'
-                      }
-                      onClick={() => toggleItemMutation.mutate({ itemId: item.id, data: { is_available: !item.is_available } })}
-                    >
-                      {item.is_available ? 'Available' : 'Sold Out'}
-                    </Button>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
+                    {item.is_vegetarian && <span className="px-2 py-0.5 rounded bg-green-50 text-green-700">Veg</span>}
+                    {item.is_vegan && <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">Vegan</span>}
+                    {item.is_spicy && <span className="px-2 py-0.5 rounded bg-red-50 text-red-700">Spicy</span>}
+                    <span className="px-2 py-0.5 rounded bg-gray-100">Prep {item.preparation_time_minutes}m</span>
+                    {item.modifiers?.length > 0 && (
+                      <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700">
+                        {item.modifiers.length} modifier{item.modifiers.length > 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {item.inventory_count !== null && (
+                      <span className={cn('px-2 py-0.5 rounded', item.inventory_count <= item.low_stock_threshold ? 'bg-rose-50 text-rose-600' : 'bg-gray-100')}>
+                        {item.inventory_count <= item.low_stock_threshold ? 'Low stock' : `Stock ${item.inventory_count}`}
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
-                  {item.is_vegetarian && <span className="px-2 py-0.5 rounded bg-green-50 text-green-700">Veg</span>}
-                  {item.is_vegan && <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">Vegan</span>}
-                  {item.is_spicy && <span className="px-2 py-0.5 rounded bg-red-50 text-red-700">Spicy</span>}
-                  <span className="px-2 py-0.5 rounded bg-gray-100">Prep {item.preparation_time_minutes}m</span>
-                  {item.modifiers?.length > 0 && (
-                    <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700">
-                      {item.modifiers.length} modifier{item.modifiers.length > 1 ? 's' : ''}
-                    </span>
-                  )}
-                  {item.inventory_count !== null && (
-                    <span className={cn('px-2 py-0.5 rounded', item.inventory_count <= item.low_stock_threshold ? 'bg-rose-50 text-rose-600' : 'bg-gray-100')}>
-                      {item.inventory_count <= item.low_stock_threshold ? 'Low stock' : `Stock ${item.inventory_count}`}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-            {!activeCategory?.items?.length && <p className="text-sm text-slate-500">No items yet.</p>}
+              ))}
+              {!activeCategory?.items?.length && <p className="text-sm text-slate-500">No items yet.</p>}
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="shadow-md bg-white">
+          <CardHeader>
+            <CardTitle className="text-zomato-dark">Quick add item</CardTitle>
+            <CardDescription className="text-zomato-gray">Launch specials instantly.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-4">
+            <Input placeholder="Dish name" value={newItem.name} onChange={(event) => setNewItem((prev) => ({ ...prev, name: event.target.value }))} />
+            <Input
+              placeholder="Price"
+              type="number"
+              value={newItem.price}
+              onChange={(event) => setNewItem((prev) => ({ ...prev, price: event.target.value }))}
+            />
+            <select
+              value={newItem.category}
+              onChange={(event) => setNewItem((prev) => ({ ...prev, category: event.target.value }))}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
+            >
+              <option value="">Select category</option>
+              {allCategories.length > 0 ? (
+                allCategories.map((category: any) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))
+              ) : (
+                <option disabled>No categories available. Please create a category first.</option>
+              )}
+            </select>
+            <Button
+              className="bg-zomato-red hover:bg-zomato-darkRed text-white"
+              disabled={!newItem.name || !newItem.price || !newItem.category || addItemMutation.isPending}
+              onClick={handleAddItem}
+            >
+              {addItemMutation.isPending ? 'Adding…' : 'Add'}
+            </Button>
+            {formError && (
+              <div className="md:col-span-4 text-sm text-red-600 mt-1">{formError}</div>
+            )}
           </CardContent>
         </Card>
-      </div>
 
-      <Card className="shadow-md bg-white">
-        <CardHeader>
-          <CardTitle className="text-zomato-dark">Quick add item</CardTitle>
-          <CardDescription className="text-zomato-gray">Launch specials instantly.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-4">
-          <Input placeholder="Dish name" value={newItem.name} onChange={(event) => setNewItem((prev) => ({ ...prev, name: event.target.value }))} />
-          <Input
-            placeholder="Price"
-            type="number"
-            value={newItem.price}
-            onChange={(event) => setNewItem((prev) => ({ ...prev, price: event.target.value }))}
+        {editingItem && (
+          <ItemEditorModal
+            item={editingItem}
+            onClose={() => setEditingItem(null)}
+            onUpdate={(data) => updateItemMutation.mutate({ itemId: editingItem.id, data })}
+            onAddModifier={(modifier) => addModifierMutation.mutate({ itemId: editingItem.id, modifier })}
+            onDeleteModifier={(modifierId) => deleteModifierMutation.mutate(modifierId)}
+            newModifier={newModifier}
+            setNewModifier={setNewModifier}
           />
-          <select
-            value={newItem.category}
-            onChange={(event) => setNewItem((prev) => ({ ...prev, category: event.target.value }))}
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm"
-          >
-            <option value="">Select category</option>
-            {allCategories.length > 0 ? (
-              allCategories.map((category: any) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))
-            ) : (
-              <option disabled>No categories available. Please create a category first.</option>
-            )}
-          </select>
-          <Button
-            className="bg-zomato-red hover:bg-zomato-darkRed text-white"
-            disabled={!newItem.name || !newItem.price || !newItem.category || addItemMutation.isPending}
-            onClick={handleAddItem}
-          >
-            {addItemMutation.isPending ? 'Adding…' : 'Add'}
-          </Button>
-          {formError && (
-            <div className="md:col-span-4 text-sm text-red-600 mt-1">{formError}</div>
-          )}
-        </CardContent>
-      </Card>
-
-      {editingItem && (
-        <ItemEditorModal
-          item={editingItem}
-          onClose={() => setEditingItem(null)}
-          onUpdate={(data) => updateItemMutation.mutate({ itemId: editingItem.id, data })}
-          onAddModifier={(modifier) => addModifierMutation.mutate({ itemId: editingItem.id, modifier })}
-          onDeleteModifier={(modifierId) => deleteModifierMutation.mutate(modifierId)}
-          newModifier={newModifier}
-          setNewModifier={setNewModifier}
-        />
-      )}
+        )}
       </div>
     </div>
   )

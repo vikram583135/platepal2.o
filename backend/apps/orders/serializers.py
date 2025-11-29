@@ -112,6 +112,7 @@ class OrderCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = (
+            'id',
             'restaurant_id',
             'delivery_address_id',
             'order_type',
@@ -124,6 +125,7 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             'scheduled_for',
             'contactless_delivery',
         )
+        read_only_fields = ('id',)
     
     def create(self, validated_data):
         from django.db import transaction

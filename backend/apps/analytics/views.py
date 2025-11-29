@@ -5,8 +5,10 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from django.db.models import Count, Sum, Avg
 from django.utils import timezone
+from django.core.cache import cache
 from datetime import timedelta
 from .models import AnalyticsEvent
 from apps.orders.models import Order
@@ -16,12 +18,19 @@ from apps.restaurants.models import Restaurant
 class AnalyticsViewSet(viewsets.ViewSet):
     """Analytics viewset"""
     permission_classes = [IsAuthenticated]
+    throttle_classes = []  # Disable throttling for analytics
     
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], throttle_classes=[])
     def dashboard(self, request):
         """Get dashboard analytics (admin only)"""
         if request.user.role != 'ADMIN':
             return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Try to get cached data first
+        cache_key = 'admin_dashboard_analytics'
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response(cached_data)
         
         # Time ranges
         today = timezone.now().date()
@@ -53,7 +62,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
             status=Restaurant.Status.ACTIVE
         ).count()
         
-        return Response({
+        data = {
             'orders': {
                 'total': total_orders,
                 'today': orders_today,
@@ -67,9 +76,14 @@ class AnalyticsViewSet(viewsets.ViewSet):
                 'total': total_restaurants,
                 'active': active_restaurants,
             }
-        })
+        }
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, data, 300)
+        
+        return Response(data)
     
-    @action(detail=False, methods=['post'], permission_classes=[])
+    @action(detail=False, methods=['post'], permission_classes=[], throttle_classes=[])
     def track_event(self, request):
         """Track analytics event"""
         event_type = request.data.get('event_type')
@@ -98,4 +112,3 @@ class AnalyticsViewSet(viewsets.ViewSet):
         else:
             ip = request.META.get('REMOTE_ADDR')
         return ip
-

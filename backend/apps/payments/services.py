@@ -14,6 +14,66 @@ from apps.events.broadcast import EventBroadcastService
 logger = logging.getLogger(__name__)
 
 
+class PaymentGatewayService:
+    """
+    Service to handle interactions with Payment Gateways (Stripe/Razorpay).
+    Currently mocks the behavior but structured for easy replacement.
+    """
+    
+    @staticmethod
+    def create_payment_intent(amount: Decimal, currency: str = 'INR', payment_method: str = 'CARD', metadata: dict = None) -> dict:
+        """
+        Create a payment intent with the gateway.
+        """
+        import uuid
+        
+        # Mock Gateway Logic
+        payment_intent_id = f"pi_{uuid.uuid4().hex[:24]}"
+        client_secret = f"secret_{uuid.uuid4().hex[:32]}"
+        
+        response = {
+            'payment_intent_id': payment_intent_id,
+            'client_secret': client_secret,
+            'amount': float(amount),
+            'currency': currency,
+            'status': 'requires_payment_method',
+            'metadata': metadata or {}
+        }
+        
+        # Simulate UPI specific details
+        if payment_method == 'UPI':
+            response['upi_id'] = 'platepal@upi'
+            response['qr_code'] = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={response['upi_id']}"
+            
+        return response
+
+    @staticmethod
+    def confirm_payment(payment_intent_id: str, payment_method: str) -> dict:
+        """
+        Confirm payment status with the gateway.
+        """
+        import uuid
+        import random
+        
+        # Mock Gateway Logic - Simulate 90% success rate
+        is_success = random.random() > 0.1
+        
+        if is_success:
+            return {
+                'status': 'succeeded',
+                'transaction_id': f"TXN_{uuid.uuid4().hex[:12].upper()}",
+                'payment_method': payment_method,
+                'amount_received': True
+            }
+        else:
+            return {
+                'status': 'failed',
+                'failure_code': 'card_declined',
+                'failure_reason': 'Card was declined by the issuer.'
+            }
+
+
+
 class SettlementService:
     """Service for processing settlement cycles and payouts"""
     

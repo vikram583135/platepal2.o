@@ -54,7 +54,7 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zomato-lightGray p-6">
+    <div className="min-h-screen page-background p-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-zomato-dark">Analytics & Reports</h1>
         <p className="text-zomato-gray mt-1">Track your restaurant performance</p>

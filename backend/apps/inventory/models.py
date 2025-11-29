@@ -30,6 +30,7 @@ class InventoryItem(TimestampMixin, SoftDeleteMixin):
     max_capacity = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     low_stock_threshold = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     auto_mark_unavailable = models.BooleanField(default=True)
+    last_auto_disabled_at = models.DateTimeField(null=True, blank=True)
     last_restocked_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
 

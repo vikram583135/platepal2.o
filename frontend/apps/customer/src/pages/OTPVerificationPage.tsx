@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/packages/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/packages/ui/components/card'
@@ -49,27 +49,7 @@ export default function OTPVerificationPage() {
     return () => clearInterval(timer)
   }, [email, phone, navigate, expiresAt])
 
-  useEffect(() => {
-    // Auto-verify when OTP is complete (with small delay for better UX)
-    if (otp.length === 6 && !loading) {
-      const timer = setTimeout(() => {
-        handleVerify()
-      }, 300)
-      return () => clearTimeout(timer)
-    }
-  }, [otp])
-
-  useEffect(() => {
-    // Resend cooldown timer
-    if (resendCooldown > 0) {
-      const timer = setTimeout(() => {
-        setResendCooldown(resendCooldown - 1)
-      }, 1000)
-      return () => clearTimeout(timer)
-    }
-  }, [resendCooldown])
-
-  const handleVerify = async () => {
+  const handleVerify = useCallback(async () => {
     if (otp.length !== 6) {
       setError('Please enter the complete 6-digit code')
       return
@@ -98,7 +78,27 @@ export default function OTPVerificationPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [otp, email, phone, otpType, state?.redirectTo, navigate])
+
+  useEffect(() => {
+    // Auto-verify when OTP is complete (with small delay for better UX)
+    if (otp.length === 6 && !loading) {
+      const timer = setTimeout(() => {
+        handleVerify()
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [otp, loading, handleVerify])
+
+  useEffect(() => {
+    // Resend cooldown timer
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => {
+        setResendCooldown(resendCooldown - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [resendCooldown])
 
   const handleResend = async () => {
     if (resendCooldown > 0) return

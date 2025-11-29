@@ -3,7 +3,7 @@ Serializers for payments app
 """
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Payment, Refund, Wallet, WalletTransaction
+from .models import Payment, Refund, Wallet, WalletTransaction, SettlementCycle, Payout
 from apps.orders.serializers import OrderSerializer
 
 
@@ -91,3 +91,33 @@ class WalletTransactionSerializer(serializers.ModelSerializer):
                   'gateway_transaction_id', 'created_at')
         read_only_fields = ('id', 'wallet', 'balance_after', 'created_at')
 
+
+class SettlementCycleSerializer(serializers.ModelSerializer):
+    """Settlement cycle serializer"""
+    restaurant_name = serializers.CharField(source='restaurant.name', read_only=True)
+    restaurant_id = serializers.IntegerField(source='restaurant.id', read_only=True)
+    
+    class Meta:
+        model = SettlementCycle
+        fields = ('id', 'restaurant', 'restaurant_id', 'restaurant_name', 'cycle_start', 'cycle_end',
+                  'total_sales', 'commission_amount', 'packaging_fee', 'delivery_fee_share',
+                  'tax_amount', 'net_payout', 'status', 'processed_at', 'payout_reference',
+                  'notes', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'restaurant', 'created_at', 'updated_at')
+
+
+class PayoutSerializer(serializers.ModelSerializer):
+    """Payout serializer"""
+    restaurant_name = serializers.CharField(source='restaurant.name', read_only=True)
+    restaurant_id = serializers.IntegerField(source='restaurant.id', read_only=True)
+    settlement_cycle_end = serializers.DateTimeField(source='settlement.cycle_end', read_only=True)
+    settlement_id = serializers.IntegerField(source='settlement.id', read_only=True)
+    
+    class Meta:
+        model = Payout
+        fields = ('id', 'settlement', 'settlement_id', 'settlement_cycle_end', 'restaurant',
+                  'restaurant_id', 'restaurant_name', 'amount', 'bank_account_number',
+                  'bank_ifsc_code', 'bank_name', 'account_holder_name', 'status',
+                  'initiated_at', 'processed_at', 'utr_number', 'failure_reason',
+                  'gateway_response', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'settlement', 'restaurant', 'created_at', 'updated_at')

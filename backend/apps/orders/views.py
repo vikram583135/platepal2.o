@@ -917,7 +917,12 @@ class OrderViewSet(viewsets.ModelViewSet):
                 'special_instructions': order.special_instructions,
                 'customer_name': order.customer.get_short_name() if order.customer else '',
                 'items': [
-                    {'name': item.name, 'quantity': item.quantity}
+                    {
+                        'id': item.id,
+                        'name': item.name, 
+                        'quantity': item.quantity,
+                        'selected_modifiers': item.selected_modifiers
+                    }
                     for item in order.items.all()
                 ],
             })

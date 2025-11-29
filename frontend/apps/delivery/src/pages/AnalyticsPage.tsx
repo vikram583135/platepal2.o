@@ -98,7 +98,7 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {formatUtils.formatCurrency(totalEarnings, 'USD')}
+              {formatUtils.formatCurrency(totalEarnings, 'INR')}
             </div>
           </CardContent>
         </Card>
@@ -129,7 +129,7 @@ export default function AnalyticsPage() {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Avg Earnings per Trip</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {formatUtils.formatCurrency(avgEarnings, 'USD')}
+                  {formatUtils.formatCurrency(avgEarnings, 'INR')}
                 </p>
               </div>
               <div>
@@ -166,7 +166,7 @@ export default function AnalyticsPage() {
                   </div>
                   <div className="text-right space-y-1">
                     <p className="font-semibold text-green-600">
-                      {formatUtils.formatCurrency(log.earnings, 'USD')}
+                      {formatUtils.formatCurrency(log.earnings, 'INR')}
                     </p>
                     <p className="text-sm text-gray-600">
                       {log.distance_km?.toFixed(1)} km · {log.duration_minutes} min

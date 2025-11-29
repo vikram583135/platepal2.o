@@ -1198,6 +1198,11 @@ class RiderWalletViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
+    def me(self, request):
+        """Get current rider's wallet (alias for my_wallet)"""
+        return self.my_wallet(request)
+    
+    @action(detail=False, methods=['get'])
     def transactions(self, request):
         """Get wallet transactions"""
         wallet, created = RiderWallet.objects.get_or_create(
@@ -1275,7 +1280,7 @@ class RiderWalletViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['get'])
     def earnings_breakdown(self, request):
         """Get earnings breakdown for period"""
-        from django.db.models import Sum
+        from django.db.models import Sum, Count
         from datetime import timedelta
         
         period = request.query_params.get('period', 'week')  # day, week, month
@@ -1301,7 +1306,7 @@ class RiderWalletViewSet(viewsets.ReadOnlyModelViewSet):
             total_base_fee=Sum('base_fee'),
             total_distance_fee=Sum('distance_fee'),
             total_tip=Sum('tip_amount'),
-            total_deliveries=deliveries.count()
+            total_deliveries=Count('id')
         )
         
         return Response({
@@ -1632,6 +1637,7 @@ class TripLogViewSet(viewsets.ReadOnlyModelViewSet):
             trip_started_at__date__gte=start_date
         )
         
+        # Get aggregates
         analytics = trip_logs.aggregate(
             total_trips=Count('id'),
             total_distance=Sum('total_distance_km'),
@@ -1639,20 +1645,24 @@ class TripLogViewSet(viewsets.ReadOnlyModelViewSet):
             total_earnings=Sum('total_earnings'),
             avg_distance=Avg('total_distance_km'),
             avg_time=Avg('total_time_minutes'),
-            avg_earnings=Avg('total_earnings')
         )
+        
+        # Calculate average earnings manually to avoid aggregate conflict
+        total_trips = analytics['total_trips'] or 0
+        total_earnings = float(analytics['total_earnings'] or 0)
+        avg_earnings = total_earnings / total_trips if total_trips > 0 else 0.0
         
         return Response({
             'period': period,
             'start_date': start_date.isoformat(),
             'analytics': {
-                'total_trips': analytics['total_trips'] or 0,
+                'total_trips': total_trips,
                 'total_distance_km': float(analytics['total_distance'] or 0),
                 'total_time_minutes': analytics['total_time'] or 0,
-                'total_earnings': float(analytics['total_earnings'] or 0),
+                'total_earnings': total_earnings,
                 'avg_distance_km': float(analytics['avg_distance'] or 0),
                 'avg_time_minutes': analytics['avg_time'] or 0,
-                'avg_earnings': float(analytics['avg_earnings'] or 0),
+                'avg_earnings': avg_earnings,
             }
         })
     

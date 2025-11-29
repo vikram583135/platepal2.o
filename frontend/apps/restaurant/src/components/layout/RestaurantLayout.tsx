@@ -11,19 +11,20 @@ export function RestaurantLayout() {
   const queryClient = useQueryClient()
   const { restaurants, setRestaurants, selectedRestaurantId, setSelectedRestaurant, setOnlineStatus } = useRestaurantStore()
 
-  const { isLoading } = useQuery({
+  const { data: restaurantsData, isLoading } = useQuery({
     queryKey: ['my-restaurants'],
     queryFn: async () => {
       const response = await apiClient.get('/restaurants/restaurants/')
       return response.data.results || response.data
     },
-    onSuccess: (data) => {
-      if (Array.isArray(data)) {
-        setRestaurants(data)
-      }
-    },
-    refetchOnWindowFocus: false, // Disable refetch on window focus to avoid 429
+    refetchOnWindowFocus: false,
   })
+
+  useEffect(() => {
+    if (restaurantsData && Array.isArray(restaurantsData)) {
+      setRestaurants(restaurantsData)
+    }
+  }, [restaurantsData, setRestaurants])
 
   const { data: dashboardSnapshot, error: dashboardError } = useQuery({
     queryKey: ['dashboard', selectedRestaurantId],
@@ -31,7 +32,7 @@ export function RestaurantLayout() {
       if (!selectedRestaurantId) {
         throw new Error('No restaurant selected')
       }
-      
+
       // Validate that restaurant exists in user's restaurants list
       const restaurantExists = restaurants.some((r: any) => r.id === selectedRestaurantId)
       if (!restaurantExists && restaurants.length > 0) {
@@ -49,20 +50,23 @@ export function RestaurantLayout() {
         }
         throw new Error('No valid restaurant available')
       }
-      
+
       const response = await apiClient.get('/restaurants/dashboard/overview/', {
         params: { restaurant_id: selectedRestaurantId },
       })
       return response.data
     },
     enabled: Boolean(selectedRestaurantId),
-    refetchOnWindowFocus: false, // Disable refetch on window focus to avoid 429
-    refetchInterval: false, // Disable auto-refetch to avoid 429
-    retry: 1, // Retry once on error
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
+    retry: 1,
     retryDelay: 1000,
-    onError: (err: any) => {
+  })
+
+  useEffect(() => {
+    if (dashboardError) {
+      const err = dashboardError as any
       console.error('Dashboard snapshot error:', err)
-      // If 404 or access denied error and we have restaurants, try to select a valid one
       if ((err?.response?.status === 404 || err?.response?.status === 403) && restaurants.length > 0) {
         const errorData = err.response?.data
         const errorMessage = errorData?.error || errorData?.details?.detail || ''
@@ -75,8 +79,8 @@ export function RestaurantLayout() {
           }
         }
       }
-    },
-  })
+    }
+  }, [dashboardError, restaurants, setSelectedRestaurant])
 
   const toggleOnlineMutation = useMutation({
     mutationFn: async () => {
@@ -92,13 +96,10 @@ export function RestaurantLayout() {
       return response.data
     },
     onSuccess: (data) => {
-      // Update store
       setOnlineStatus(data.is_online)
-      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ['dashboard', selectedRestaurantId] })
       queryClient.invalidateQueries({ queryKey: ['restaurant-dashboard', selectedRestaurantId] })
       queryClient.invalidateQueries({ queryKey: ['my-restaurants'] })
-      // Update the dashboard snapshot optimistically
       queryClient.setQueryData(['dashboard', selectedRestaurantId], (old: any) => {
         if (!old) return old
         return {
@@ -112,22 +113,15 @@ export function RestaurantLayout() {
     },
     onError: (error: any) => {
       console.error('Failed to toggle online status:', error)
-      // Show user-friendly error
       alert(`Failed to ${dashboardSnapshot?.restaurant?.is_online ? 'go offline' : 'go online'}. Please try again.`)
     },
   })
 
-  // Auto-select first restaurant if we have restaurants but none selected
-  // Also validate that selectedRestaurantId exists in restaurants list
-  // Use useEffect to avoid calling setState during render
-  // MUST be called before any conditional returns (Rules of Hooks)
   useEffect(() => {
     if (restaurants.length > 0) {
-      // Check if selected restaurant exists in the list
       const selectedExists = selectedRestaurantId && restaurants.some((r: any) => r.id === selectedRestaurantId)
-      
+
       if (!selectedRestaurantId || !selectedExists) {
-        // Select first approved restaurant, or first restaurant if none approved
         const approvedRestaurant = restaurants.find((r: any) => r.onboarding_status === 'APPROVED')
         const restaurantToSelect = approvedRestaurant || restaurants[0]
         if (restaurantToSelect?.id) {
@@ -142,23 +136,20 @@ export function RestaurantLayout() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin h-8 w-8 rounded-full border-2 border-primary-600 border-t-transparent" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-red-100">
+        <div className="animate-spin h-8 w-8 rounded-full border-2 border-zomato-red border-t-transparent" />
       </div>
     )
   }
 
-  // Don't redirect to onboarding if we have restaurants but just need to select one
-  // Only redirect if we truly have no restaurants at all
   if (!selectedRestaurantId && restaurants.length === 0 && !isLoading) {
-    // Check if restaurants are still loading or if we should wait
     return <Navigate to="/onboarding" replace />
   }
 
   const isOnline = dashboardSnapshot?.restaurant?.is_online ?? false
 
   return (
-    <div className="min-h-screen bg-zomato-lightGray text-zomato-dark">
+    <div className="min-h-screen page-background text-zomato-dark">
       <div className="flex">
         <Sidebar />
         <div className="flex-1 flex flex-col min-h-screen">
@@ -169,7 +160,7 @@ export function RestaurantLayout() {
             toggleOnline={() => toggleOnlineMutation.mutate()}
             togglingOnline={toggleOnlineMutation.isPending}
           />
-          <main className="flex-1 px-4 py-6 sm:px-8">
+          <main className="flex-1 px-4 py-6 sm:px-8 page-content">
             <Outlet />
           </main>
         </div>
@@ -177,5 +168,3 @@ export function RestaurantLayout() {
     </div>
   )
 }
-
-

@@ -72,13 +72,13 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
         
         inventory_item.current_stock += quantity
         inventory_item.last_restocked_at = timezone.now()
-        inventory_item.save(update_fields=['current_stock', 'last_restocked_at', 'updated_at'])
         
         # If item was sold out and is now available, mark menu item available
         if previous_stock <= 0 and inventory_item.current_stock > 0 and inventory_item.menu_item:
-            if not inventory_item.menu_item.is_available:
+            if not inventory_item.menu_item.is_available and inventory_item.auto_mark_unavailable:
                 inventory_item.menu_item.is_available = True
                 inventory_item.menu_item.save(update_fields=['is_available'])
+                inventory_item.last_auto_disabled_at = None  # Clear auto-disable timestamp
                 
                 # Broadcast menu.updated
                 EventBroadcastService.broadcast_to_restaurant(
@@ -92,6 +92,8 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
                         'reason': 'restocked',
                     },
                 )
+        
+        inventory_item.save(update_fields=['current_stock', 'last_restocked_at', 'last_auto_disabled_at', 'updated_at'])
         
         # Broadcast inventory update if was low stock
         if was_low_stock and not inventory_item.is_low_stock:
@@ -115,9 +117,12 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def mark_sold_out(self, request, pk=None):
         inventory_item = self.get_object()
-        if inventory_item.menu_item:
+        
+        # Auto-disable menu item if enabled
+        if inventory_item.menu_item and inventory_item.auto_mark_unavailable:
             inventory_item.menu_item.is_available = False
             inventory_item.menu_item.save(update_fields=['is_available'])
+            inventory_item.last_auto_disabled_at = timezone.now()
             
             # Broadcast menu.updated
             EventBroadcastService.broadcast_to_restaurant(
@@ -128,7 +133,7 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
                 payload={
                     'menu_item_id': inventory_item.menu_item.id,
                     'is_available': False,
-                    'reason': 'manually_marked_sold_out',
+                    'reason': 'auto_disabled_out_of_stock' if inventory_item.auto_mark_unavailable else 'manually_marked_sold_out',
                 },
             )
             
@@ -142,11 +147,12 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
                     'menu_item_id': inventory_item.menu_item.id,
                     'menu_item_name': inventory_item.menu_item.name,
                     'inventory_item_id': inventory_item.id,
+                    'auto_disabled': inventory_item.auto_mark_unavailable,
                 },
             )
         
         inventory_item.current_stock = Decimal('0.00')
-        inventory_item.save(update_fields=['current_stock', 'updated_at'])
+        inventory_item.save(update_fields=['current_stock', 'last_auto_disabled_at', 'updated_at'])
         return Response(self.get_serializer(inventory_item).data)
 
     @action(detail=False, methods=['get'])

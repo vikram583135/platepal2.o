@@ -1584,7 +1584,7 @@ export default function OnboardingPage() {
 
   if (isLoading || isLoadingRestaurants) {
     return (
-      <div className="min-h-screen bg-zomato-lightGray flex items-center justify-center">
+      <div className="min-h-screen page-background flex items-center justify-center">
         <div className="text-center text-rose-500">Loading onboarding wizard…</div>
       </div>
     )
@@ -1597,7 +1597,7 @@ export default function OnboardingPage() {
       useRestaurantStore.getState().setSelectedRestaurant(firstRestaurant.id)
       // Return loading state while selecting
       return (
-        <div className="min-h-screen bg-zomato-lightGray flex items-center justify-center">
+        <div className="min-h-screen page-background flex items-center justify-center">
           <div className="text-center text-rose-500">Loading…</div>
         </div>
       )
@@ -1606,7 +1606,7 @@ export default function OnboardingPage() {
 
   if (!activeRestaurantId || (error && !restaurantsError)) {
     return (
-      <div className="min-h-screen bg-zomato-lightGray flex items-center justify-center">
+      <div className="min-h-screen page-background flex items-center justify-center">
         <Card className="max-w-md">
           <CardHeader>
             <CardTitle className="text-rose-900">No restaurant selected</CardTitle>

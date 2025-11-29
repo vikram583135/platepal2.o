@@ -1,12 +1,14 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Card, CardContent } from '@/packages/ui/components/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/packages/ui/components/card'
 import { Button } from '@/packages/ui/components/button'
 import { Badge } from '@/packages/ui/components/badge'
 import { Skeleton } from '@/packages/ui/components/skeleton'
-import { Bell, CheckCircle2, Package, Truck, Utensils, CreditCard, Tag, Star, XCircle, AlertCircle, Trash2, CheckCheck } from 'lucide-react'
+import { Bell, CheckCircle2, Package, Truck, Utensils, CreditCard, Tag, Star, XCircle, AlertCircle, Trash2, CheckCheck, Settings, Filter } from 'lucide-react'
 import apiClient from '@/packages/api/client'
 import { formatDate } from '@/packages/utils/format'
 import { useNavigate } from 'react-router-dom'
+import { cn } from '@/packages/utils/cn'
 
 const iconMap: Record<string, any> = {
   package: Package,
@@ -25,6 +27,8 @@ const iconMap: Record<string, any> = {
 export default function NotificationsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [showPreferences, setShowPreferences] = useState(false)
 
   const { data: notifications, isLoading } = useQuery({
     queryKey: ['notifications'],
@@ -39,6 +43,28 @@ export default function NotificationsPage() {
     queryFn: async () => {
       const response = await apiClient.get('/notifications/notifications/unread_count/')
       return response.data.count || 0
+    },
+  })
+
+  const { data: preferences } = useQuery({
+    queryKey: ['notification-preferences'],
+    queryFn: async () => {
+      const response = await apiClient.get('/notifications/preferences/')
+      const data = response.data
+      return Array.isArray(data) && data.length > 0 ? data[0] : data
+    },
+  })
+
+  const updatePreferencesMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const prefId = preferences?.id
+      if (prefId) {
+        return apiClient.patch(`/notifications/preferences/${prefId}/`, data)
+      }
+      return apiClient.post('/notifications/preferences/', data)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notification-preferences'] })
     },
   })
 
@@ -76,14 +102,17 @@ export default function NotificationsPage() {
 
   const handleNotificationClick = (notification: any) => {
     markReadMutation.mutate(notification.id)
-    
+
     // Navigate based on notification type
+    // Navigate based on notification type
+    if (notification.type === 'PROMOTION' && notification.data?.offer_id) {
+      navigate('/offers')
+      return
+    }
+
     if (notification.data?.order_id) {
       navigate(`/orders/${notification.data.order_id}`)
-    } else if (notification.type === 'PROMOTION' && notification.data?.offer_id) {
-      navigate('/offers')
-    } else if (notification.type === 'REVIEW_REQUEST' && notification.data?.order_id) {
-      navigate(`/orders/${notification.data.order_id}`)
+      return
     }
   }
 
@@ -96,8 +125,22 @@ export default function NotificationsPage() {
     )
   }
 
-  const unreadNotifications = notifications?.filter((n: any) => !n.is_read) || []
-  const readNotifications = notifications?.filter((n: any) => n.is_read) || []
+  // Filter by category
+  const filteredNotifications = notifications?.filter((n: any) => {
+    if (selectedCategory === 'all') return true
+    return n.type === selectedCategory
+  }) || []
+
+  const unreadNotifications = filteredNotifications.filter((n: any) => !n.is_read)
+  const readNotifications = filteredNotifications.filter((n: any) => n.is_read)
+
+  const categories = [
+    { value: 'all', label: 'All', icon: Bell },
+    { value: 'ORDER', label: 'Orders', icon: Package },
+    { value: 'PROMOTION', label: 'Promotions', icon: Tag },
+    { value: 'PAYMENT', label: 'Payments', icon: CreditCard },
+    { value: 'DELIVERY', label: 'Delivery', icon: Truck },
+  ]
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -144,16 +187,14 @@ export default function NotificationsPage() {
                   return (
                     <Card
                       key={notification.id}
-                      className={`cursor-pointer hover:shadow-md transition-shadow ${
-                        !notification.is_read ? 'border-primary-300 bg-primary-50' : ''
-                      }`}
+                      className={`cursor-pointer hover:shadow-md transition-shadow ${!notification.is_read ? 'border-primary-300 bg-primary-50' : ''
+                        }`}
                       onClick={() => handleNotificationClick(notification)}
                     >
                       <CardContent className="p-4">
                         <div className="flex items-start gap-4">
-                          <div className={`p-2 rounded-full ${
-                            !notification.is_read ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-600'
-                          }`}>
+                          <div className={`p-2 rounded-full ${!notification.is_read ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-600'
+                            }`}>
                             <IconComponent className="w-5 h-5" />
                           </div>
                           <div className="flex-1">

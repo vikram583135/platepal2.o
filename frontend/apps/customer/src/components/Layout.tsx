@@ -11,9 +11,9 @@ export default function Layout() {
   useCustomerSocket(user?.id)
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col page-background">
       <Navbar />
-      <main className="flex-1">
+      <main className="flex-1 page-content">
         <Outlet />
       </main>
       <Footer />

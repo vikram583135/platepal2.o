@@ -17,9 +17,9 @@ export function formatCurrency(amount: number | string, currency: string = 'INR'
 /**
  * Format date
  */
-export function formatDate(date: string | Date): string {
+export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOptions): string {
   const d = typeof date === 'string' ? new Date(date) : date
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat('en-US', options || {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

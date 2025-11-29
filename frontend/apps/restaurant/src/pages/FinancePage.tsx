@@ -7,6 +7,7 @@ import apiClient from '@/packages/api/client'
 import { useRestaurantStore } from '../stores/restaurantStore'
 import { Download, Calendar, TrendingUp, TrendingDown, DollarSign, CreditCard, AlertCircle, CheckCircle2, Clock } from 'lucide-react'
 import { cn } from '@/packages/utils/cn'
+import jsPDF from 'jspdf'
 
 interface FeedOrder {
   id: number
@@ -79,7 +80,7 @@ export default function FinancePage() {
     const cancelled = (ordersQuery.data || []).filter((order: any) => order.status === 'CANCELLED')
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    
+
     const todayOrders = delivered.filter((order: any) => {
       const orderDate = new Date(order.delivered_at || order.created_at)
       orderDate.setHours(0, 0, 0, 0)
@@ -91,11 +92,11 @@ export default function FinancePage() {
     const totalRefunds = cancelled.reduce((sum: number, order: any) => sum + Number(order.total_amount || 0), 0)
     const commission = totalSales * 0.15 // 15% commission
     const netPayout = totalSales - commission
-    
-    return { 
-      totalSales, 
-      todaysSales, 
-      avgOrder, 
+
+    return {
+      totalSales,
+      todaysSales,
+      avgOrder,
       deliveredCount: delivered.length,
       totalRefunds,
       commission,
@@ -136,8 +137,8 @@ export default function FinancePage() {
         <div className="text-center">
           <p className="text-red-600 mb-2">Failed to load finance data</p>
           <p className="text-zomato-gray text-sm">
-            {(ordersQuery.error || feedQuery.error) instanceof Error 
-              ? (ordersQuery.error || feedQuery.error)?.message 
+            {(ordersQuery.error || feedQuery.error) instanceof Error
+              ? (ordersQuery.error || feedQuery.error)?.message
               : 'An unexpected error occurred'}
           </p>
         </div>
@@ -161,10 +162,10 @@ export default function FinancePage() {
     try {
       const date = new Date(dateString)
       if (isNaN(date.getTime())) return 'N/A'
-      return date.toLocaleDateString('en-IN', { 
-        day: 'numeric', 
-        month: 'short', 
-        year: 'numeric' 
+      return date.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
       })
     } catch {
       return 'N/A'
@@ -189,8 +190,61 @@ export default function FinancePage() {
     return <Clock className="h-4 w-4" />
   }
 
+  const generateInvoicePDF = (settlement: any) => {
+    const doc = new jsPDF()
+
+    // Header
+    doc.setFontSize(20)
+    doc.text('Settlement Invoice', 20, 20)
+
+    doc.setFontSize(10)
+    doc.text(`Invoice Date: ${new Date().toLocaleDateString('en-IN')}`, 20, 30)
+    doc.text(`Settlement Period: ${formatDate(settlement.cycle_start)} - ${formatDate(settlement.cycle_end)}`, 20, 36)
+    doc.text(`Reference: ${settlement.payout_reference || 'N/A'}`, 20, 42)
+
+    // Settlement Details
+    doc.setFontSize(14)
+    doc.text('Settlement Details', 20, 55)
+
+    doc.setFontSize(10)
+    const details = [
+      ['Total Sales', formatCurrency(Number(settlement.total_sales))],
+      ['Commission (15%)', `-${formatCurrency(Number(settlement.commission_amount))}`],
+      ['Packaging Fee', `-${formatCurrency(Number(settlement.packaging_fee))}`],
+      ['Delivery Fee Share', `-${formatCurrency(Number(settlement.delivery_fee_share))}`],
+      ['Tax Amount', `-${formatCurrency(Number(settlement.tax_amount))}`],
+      ['', ''],
+      ['Net Payout', formatCurrency(Number(settlement.net_payout))],
+    ]
+
+    let y = 65
+    details.forEach(([label, value]) => {
+      if (label === '') {
+        y += 5
+      } else {
+        doc.text(label, 20, y)
+        doc.text(value, 150, y, { align: 'right' })
+        y += 7
+      }
+    })
+
+    // Status
+    doc.setFontSize(12)
+    doc.text(`Status: ${settlement.status}`, 20, y + 10)
+    if (settlement.processed_at) {
+      doc.text(`Processed: ${formatDate(settlement.processed_at)}`, 20, y + 18)
+    }
+
+    // Footer
+    doc.setFontSize(8)
+    doc.text('This is a computer-generated invoice and does not require a signature.', 20, 280)
+
+    // Save PDF
+    doc.save(`settlement-invoice-${settlement.id}.pdf`)
+  }
+
   return (
-    <div className="min-h-screen bg-zomato-lightGray p-6">
+    <div className="min-h-screen page-background p-6">
       <div className="space-y-6">
         <header className="flex items-center justify-between">
           <div>
@@ -273,28 +327,28 @@ export default function FinancePage() {
               </Card>
             </div>
 
-        <Card className="bg-white shadow-md">
-          <CardHeader>
-            <CardTitle className="text-zomato-dark">Revenue Trend</CardTitle>
-            <CardDescription className="text-zomato-gray">Based on recent orders.</CardDescription>
-          </CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#E23744" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#E23744" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="day" stroke="#8E8E8E" />
-                <YAxis stroke="#8E8E8E" />
-                <Tooltip />
-                <Area type="monotone" dataKey="amount" stroke="#E23744" fillOpacity={1} fill="url(#colorSales)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+            <Card className="bg-white shadow-md">
+              <CardHeader>
+                <CardTitle className="text-zomato-dark">Revenue Trend</CardTitle>
+                <CardDescription className="text-zomato-gray">Based on recent orders.</CardDescription>
+              </CardHeader>
+              <CardContent className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#E23744" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#E23744" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="day" stroke="#8E8E8E" />
+                    <YAxis stroke="#8E8E8E" />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="amount" stroke="#E23744" fillOpacity={1} fill="url(#colorSales)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
 
             <div className="grid gap-4 md:grid-cols-2">
               <Card className="bg-white shadow-md">
@@ -377,6 +431,17 @@ export default function FinancePage() {
                         Processed: {formatDate(settlement.processed_at)}
                       </p>
                     )}
+                    <div className="mt-4">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => generateInvoicePDF(settlement)}
+                        className="flex items-center gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download Invoice
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))

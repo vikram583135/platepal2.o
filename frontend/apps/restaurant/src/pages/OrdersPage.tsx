@@ -481,7 +481,7 @@ export default function OrdersPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-4">
-                <div className="p-4 bg-zomato-lightGray rounded-lg">
+                <div className="p-4 bg-red-50 rounded-lg border border-red-100">
                   <h3 className="font-semibold text-zomato-dark mb-2">Customer</h3>
                   <p className="text-sm text-zomato-gray">
                     {order.customer?.first_name} {order.customer?.last_name}
@@ -532,7 +532,7 @@ export default function OrdersPage() {
                 <h3 className="font-semibold text-zomato-dark mb-2">Items</h3>
                 <div className="space-y-2">
                   {order.items?.map((item: any) => (
-                    <div key={item.id} className="flex justify-between p-2 bg-zomato-lightGray rounded">
+                    <div key={item.id} className="flex justify-between p-2 bg-red-50 rounded border border-red-100">
                       <div>
                         <p className="text-sm font-medium text-zomato-dark">{item.name}</p>
                         <p className="text-xs text-zomato-gray">Qty: {item.quantity}</p>
@@ -574,7 +574,7 @@ export default function OrdersPage() {
               </div>
 
                 {timeline.length > 0 && (
-                  <div className="p-4 bg-zomato-lightGray rounded-lg">
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-100">
                     <h3 className="font-semibold text-zomato-dark mb-2">Timeline</h3>
                     <div className="space-y-1 text-sm">
                       {timeline.map((entry) => (
@@ -608,7 +608,7 @@ export default function OrdersPage() {
                   </div>
                 )}
 
-                <div className="p-4 bg-zomato-lightGray rounded-lg">
+                <div className="p-4 bg-red-50 rounded-lg border border-red-100">
                   <div className="flex items-center gap-2 mb-3">
                     <TimerReset className="h-4 w-4 text-zomato-dark" />
                     <h3 className="font-semibold text-zomato-dark">Modify Prep Time</h3>
@@ -633,7 +633,7 @@ export default function OrdersPage() {
                   </Button>
                 </div>
 
-                <div className="p-4 bg-zomato-lightGray rounded-lg">
+                <div className="p-4 bg-red-50 rounded-lg border border-red-100">
                   <div className="flex items-center gap-2 mb-3">
                     <MessageCircle className="h-4 w-4 text-zomato-dark" />
                     <h3 className="font-semibold text-zomato-dark">Kitchen Notes</h3>
@@ -656,7 +656,7 @@ export default function OrdersPage() {
                   </Button>
                 </div>
 
-                <div className="p-4 bg-zomato-lightGray rounded-lg">
+                <div className="p-4 bg-red-50 rounded-lg border border-red-100">
                   <div className="flex items-center gap-2 mb-3">
                     <Flame className="h-4 w-4 text-zomato-dark" />
                     <h3 className="font-semibold text-zomato-dark">Priority</h3>
@@ -690,7 +690,7 @@ export default function OrdersPage() {
                 </div>
 
                 {combineCandidates.length > 0 && (
-                  <div className="p-4 bg-zomato-lightGray rounded-lg">
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-100">
                     <div className="flex items-center gap-2 mb-3">
                       <GitMerge className="h-4 w-4 text-zomato-dark" />
                       <h3 className="font-semibold text-zomato-dark">Combine Orders</h3>
@@ -721,7 +721,7 @@ export default function OrdersPage() {
                   </div>
                 )}
 
-                <div className="p-4 bg-zomato-lightGray rounded-lg">
+                <div className="p-4 bg-red-50 rounded-lg border border-red-100">
                   <div className="flex items-center gap-2 mb-3">
                     <Printer className="h-4 w-4 text-zomato-dark" />
                     <h3 className="font-semibold text-zomato-dark">Print & Notify</h3>
@@ -829,7 +829,7 @@ export default function OrdersPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-zomato-lightGray p-6">
+    <div className="min-h-screen page-background p-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-zomato-dark">Orders Management</h1>
         <p className="text-zomato-gray mt-1">Manage and track all your orders</p>

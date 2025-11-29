@@ -133,7 +133,7 @@ export default function DashboardPage() {
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${isShiftActive ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+            <div className={`w-3 h-3 rounded-full ${isShiftActive ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`}></div>
             <span className="text-sm font-medium text-gray-700">
               {isShiftActive ? 'On Shift' : 'Off Shift'}
             </span>
@@ -144,7 +144,7 @@ export default function DashboardPage() {
             variant={isShiftActive ? 'destructive' : 'default'}
             className={cn(
               'min-w-[120px]',
-              isShiftActive ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
+              isShiftActive ? 'bg-red-600 hover:bg-red-700' : 'delivery-button-primary'
             )}
           >
             {startShiftMutation.isPending || stopShiftMutation.isPending
@@ -159,17 +159,17 @@ export default function DashboardPage() {
       {/* Shift Summary Cards */}
       {currentShift && isShiftActive && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
+          <Card className="delivery-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">Shift Earnings</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {formatUtils.formatCurrency(shiftStats?.total_earnings || currentShift.total_earnings || 0, 'USD')}
+              <div className="text-2xl font-bold text-emerald-600">
+                {formatUtils.formatCurrency(shiftStats?.total_earnings || currentShift.total_earnings || 0, 'INR')}
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="delivery-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">Deliveries</CardTitle>
             </CardHeader>
@@ -179,7 +179,7 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="delivery-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">Distance</CardTitle>
             </CardHeader>
@@ -189,7 +189,7 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="delivery-card">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">Time</CardTitle>
             </CardHeader>
@@ -204,13 +204,13 @@ export default function DashboardPage() {
 
       {/* Dashboard Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
+        <Card className="delivery-card">
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Today's Earnings</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600 mb-2">
-              {formatUtils.formatCurrency(dashboardStats?.today_earnings || 0, 'USD')}
+            <div className="text-3xl font-bold text-emerald-600 mb-2">
+              {formatUtils.formatCurrency(dashboardStats?.today_earnings || 0, 'INR')}
             </div>
             <p className="text-sm text-gray-600">
               {dashboardStats?.today_deliveries || 0} deliveries completed
@@ -218,13 +218,13 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="delivery-card">
           <CardHeader>
             <CardTitle className="text-lg font-semibold">This Week</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-600 mb-2">
-              {formatUtils.formatCurrency(dashboardStats?.week_earnings || 0, 'USD')}
+              {formatUtils.formatCurrency(dashboardStats?.week_earnings || 0, 'INR')}
             </div>
             <p className="text-sm text-gray-600">
               {dashboardStats?.week_deliveries || 0} deliveries this week
@@ -232,7 +232,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="delivery-card">
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Available Offers</CardTitle>
           </CardHeader>
@@ -271,12 +271,12 @@ export default function DashboardPage() {
               </div>
               <div className="flex justify-between items-center py-2">
                 <span className="text-sm font-medium">Average per Delivery</span>
-                <span className="text-sm font-semibold text-green-600">
+                <span className="text-sm font-semibold text-emerald-600">
                   {formatUtils.formatCurrency(
                     (shiftStats.total_deliveries || 0) > 0
                       ? (shiftStats.total_earnings || 0) / (shiftStats.total_deliveries || 1)
                       : 0,
-                    'USD'
+                    'INR'
                   )}
                 </span>
               </div>

@@ -37,14 +37,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen admin-page-background">
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-gray-200 min-h-screen">
-          <div className="p-4 border-b border-gray-200">
-            <h1 className="text-xl font-bold text-gray-900">PlatePal Admin</h1>
+        <aside className="w-64 bg-white/95 backdrop-blur border-r border-indigo-100 min-h-screen shadow-sm">
+          <div className="p-4 border-b border-indigo-200/50 bg-gradient-to-r from-indigo-600 to-indigo-700">
+            <h1 className="text-xl font-bold text-white">PlatePal Admin</h1>
           </div>
-          <nav className="p-2">
+          <nav className="p-2 bg-white/80">
             {menuItems.map((item) => {
               const Icon = item.icon
               const isActive = location.pathname === item.path
@@ -52,10 +52,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-md mb-1 ${
+                  className={`flex items-center gap-3 px-3 py-2 rounded-md mb-1 transition-all ${
                     isActive
-                      ? 'bg-blue-50 text-blue-700 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
+                      ? 'admin-nav-active shadow-sm'
+                      : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border border-transparent hover:border-indigo-100'
                   }`}
                 >
                   <Icon className="w-5 h-5" />
@@ -64,10 +64,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               )
             })}
           </nav>
-          <div className="absolute bottom-0 w-64 p-4 border-t border-gray-200">
+          <div className="absolute bottom-0 w-64 p-4 border-t border-indigo-100 bg-white/80">
             <button
               onClick={handleLogout}
-              className="flex items-center gap-3 px-3 py-2 rounded-md text-gray-700 hover:bg-gray-50 w-full"
+              className="flex items-center gap-3 px-3 py-2 rounded-md text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 w-full transition-colors border border-transparent hover:border-indigo-100"
             >
               <LogOut className="w-5 h-5" />
               <span>Logout</span>
@@ -76,15 +76,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1">
+        <main className="flex-1 admin-page-content">
           {/* Header */}
-          <header className="bg-white border-b border-gray-200 px-6 py-4">
+          <header className="bg-white/80 backdrop-blur border-b border-indigo-100 px-6 py-4 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
                 {menuItems.find(item => item.path === location.pathname)?.label || 'Admin Panel'}
               </h2>
               <div className="flex items-center gap-4">
-                <button className="p-2 text-gray-600 hover:text-gray-900">
+                <button className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
                   <Bell className="w-5 h-5" />
                 </button>
               </div>

@@ -55,7 +55,7 @@ export default function PromotionsPage() {
       if (!form.discount_value || Number(form.discount_value) <= 0) {
         throw new Error('Valid discount value is required')
       }
-      
+
       const payload: any = {
         restaurant: selectedRestaurantId,
         name: form.name.trim(),
@@ -68,7 +68,7 @@ export default function PromotionsPage() {
         valid_until: new Date(form.valid_until).toISOString(),
         max_uses_per_user: Number(form.max_uses_per_user) || 1,
       }
-      
+
       if (form.maximum_discount) {
         payload.maximum_discount = Number(form.maximum_discount)
       }
@@ -78,7 +78,7 @@ export default function PromotionsPage() {
       if (form.code) {
         payload.code = form.code.trim().toUpperCase()
       }
-      
+
       return apiClient.post('/restaurants/promotions/', payload)
     },
     onSuccess: () => {
@@ -240,7 +240,7 @@ export default function PromotionsPage() {
   const promotions = promotionsQuery.data || []
 
   return (
-    <div className="min-h-screen bg-zomato-lightGray p-6">
+    <div className="min-h-screen page-background p-6">
       <div className="space-y-6">
         <header className="flex items-center justify-between">
           <div>
@@ -311,6 +311,10 @@ export default function PromotionsPage() {
                         <span>{formatDate(promotion.valid_from)} - {formatDate(promotion.valid_until)}</span>
                       </div>
                     </div>
+
+                    {/* Analytics Section */}
+                    <PromotionAnalytics promotionId={promotion.id} />
+
                     <div className="flex gap-2 pt-2 border-t">
                       <Button
                         size="sm"
@@ -544,4 +548,89 @@ function PromotionModal({
   )
 }
 
+function PromotionAnalytics({ promotionId }: { promotionId: number }) {
+  const analyticsQuery = useQuery({
+    queryKey: ['promotion-analytics', promotionId],
+    queryFn: async () => {
+      const response = await apiClient.get(`/restaurants/promotions/${promotionId}/analytics/`)
+      return response.data
+    },
+    enabled: Boolean(promotionId),
+    staleTime: 60000, // Cache for 1 minute
+  })
+
+  if (analyticsQuery.isLoading) {
+    return (
+      <div className="py-2 text-xs text-zomato-gray">
+        Loading analytics...
+      </div>
+    )
+  }
+
+  if (analyticsQuery.error || !analyticsQuery.data) {
+    return null // Silently fail if no analytics available
+  }
+
+  const analytics = analyticsQuery.data
+
+  // Only show analytics if there's meaningful data
+  if (analytics.total_orders === 0) {
+    return (
+      <div className="py-2 text-xs text-zomato-gray border-t mt-2">
+        No orders yet with this promotion
+      </div>
+    )
+  }
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    }).format(amount)
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t space-y-2">
+      <div className="flex items-center gap-1 text-xs font-semibold text-zomato-dark">
+        <TrendingUp className="h-3 w-3 text-green-600" />
+        <span>Performance</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <p className="text-zomato-gray">Orders</p>
+          <p className="font-semibold text-zomato-dark">{analytics.total_orders}</p>
+        </div>
+        <div>
+          <p className="text-zomato-gray">Revenue</p>
+          <p className="font-semibold text-zomato-dark">{formatCurrency(analytics.total_revenue)}</p>
+        </div>
+        <div>
+          <p className="text-zomato-gray">Discount Given</p>
+          <p className="font-semibold text-orange-600">{formatCurrency(analytics.total_discount)}</p>
+        </div>
+        <div>
+          <p className="text-zomato-gray">ROI</p>
+          <p className={`font-semibold ${analytics.roi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {analytics.roi >= 0 ? '+' : ''}{(analytics.roi * 100).toFixed(0)}%
+          </p>
+        </div>
+      </div>
+      {analytics.usage_percentage > 0 && (
+        <div className="mt-2">
+          <div className="flex items-center justify-between text-xs mb-1">
+            <span className="text-zomato-gray">Usage</span>
+            <span className="font-semibold">{analytics.usage_percentage.toFixed(0)}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-1.5">
+            <div
+              className="bg-zomato-red h-1.5 rounded-full transition-all"
+              style={{ width: `${Math.min(analytics.usage_percentage, 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 

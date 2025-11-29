@@ -8,10 +8,15 @@ from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from django.db import transaction
 from .models import Payment, Refund, Wallet, WalletTransaction, SettlementCycle, Payout
-from .serializers import PaymentSerializer, PaymentCreateSerializer, RefundSerializer, WalletSerializer, WalletTransactionSerializer
+from .serializers import (
+    PaymentSerializer, PaymentCreateSerializer, RefundSerializer, 
+    WalletSerializer, WalletTransactionSerializer,
+    SettlementCycleSerializer, PayoutSerializer
+)
 from apps.accounts.permissions import IsOwnerOrAdmin
 from apps.events.broadcast import EventBroadcastService
 import logging
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
@@ -236,6 +241,8 @@ import uuid
 @api_view(['POST'])
 def create_payment_intent(request):
     """Create payment intent for gateway integration"""
+    from .services import PaymentGatewayService
+    
     order_id = request.data.get('order_id')
     payment_method = request.data.get('payment_method')  # CARD, UPI, WALLET, CASH, NET_BANKING
     amount = request.data.get('amount')
@@ -249,22 +256,17 @@ def create_payment_intent(request):
     except Order.DoesNotExist:
         return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
     
-    # Create payment intent (mock - in production, integrate with Razorpay/Stripe)
-    payment_intent_id = f"pi_{uuid.uuid4().hex[:24]}"
-    
-    # Mock gateway response
-    gateway_response = {
-        'payment_intent_id': payment_intent_id,
-        'client_secret': f"secret_{uuid.uuid4().hex[:32]}",
-        'status': 'requires_payment_method',
-    }
-    
-    # For UPI, return UPI details
-    if payment_method == 'UPI':
-        gateway_response['upi_id'] = f"platepal@{request.data.get('upi_provider', 'paytm')}"
-        gateway_response['qr_code'] = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={gateway_response['upi_id']}"
-    
-    return Response(gateway_response)
+    try:
+        gateway_response = PaymentGatewayService.create_payment_intent(
+            amount=Decimal(str(amount)),
+            currency='INR',
+            payment_method=payment_method,
+            metadata={'order_id': order.id, 'user_id': request.user.id}
+        )
+        return Response(gateway_response)
+    except Exception as e:
+        logger.error(f"Payment intent creation failed: {str(e)}")
+        return Response({'error': 'Failed to create payment intent'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
@@ -272,119 +274,129 @@ def create_payment_intent(request):
 def confirm_payment(request):
     """Confirm payment after gateway processing"""
     from apps.orders.models import Order
-    
-    order_id = request.data.get('order_id')
-    payment_intent_id = request.data.get('payment_intent_id')
-    transaction_id = request.data.get('transaction_id')
-    payment_method = request.data.get('payment_method')
-    payment_status = request.data.get('status', 'completed')  # 'completed' or 'failed'
-    failure_reason = request.data.get('failure_reason', '')
-    failure_code = request.data.get('failure_code', '')
-    
-    if not order_id:
-        return Response({'error': 'order_id is required'}, 
-                       status=status.HTTP_400_BAD_REQUEST)
+    from .services import PaymentGatewayService
     
     try:
-        order = Order.objects.get(id=order_id, customer=request.user)
-    except Order.DoesNotExist:
-        return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
-    
-    # Handle payment failure
-    if payment_status == 'failed':
-        # Create or update payment with failed status
+        order_id = request.data.get('order_id')
+        payment_intent_id = request.data.get('payment_intent_id')
+        payment_method = request.data.get('payment_method')
+        
+        # Optional: Allow client to pass transaction_id directly for manual flows (like Cash)
+        client_transaction_id = request.data.get('transaction_id')
+        
+        if not order_id:
+            return Response({'error': 'order_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            order = Order.objects.get(id=order_id, customer=request.user)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        # Verify with gateway
+        if payment_intent_id:
+            gateway_result = PaymentGatewayService.confirm_payment(payment_intent_id, payment_method)
+            payment_status = gateway_result['status']
+            transaction_id = gateway_result.get('transaction_id')
+            failure_reason = gateway_result.get('failure_reason', '')
+            failure_code = gateway_result.get('failure_code', '')
+        else:
+            # Fallback for non-gateway flows (e.g. Cash) if allowed, or client provided ID
+            payment_status = request.data.get('status', 'completed')
+            transaction_id = client_transaction_id
+            failure_reason = request.data.get('failure_reason', '')
+            failure_code = request.data.get('failure_code', '')
+
+        # Handle payment failure
+        if payment_status == 'failed':
+            # Create or update payment with failed status
+            payment, created = Payment.objects.get_or_create(
+                order=order,
+                defaults={
+                    'user': request.user,
+                    'method_type': payment_method or Payment.PaymentMethodType.CASH,
+                    'amount': order.total_amount,
+                    'transaction_id': transaction_id or f"TXN-FAIL-{uuid.uuid4().hex[:12].upper()}",
+                    'status': Payment.Status.FAILED,
+                    'failure_reason': failure_reason or 'Payment failed',
+                    'failure_code': failure_code or 'GATEWAY_ERROR',
+                }
+            )
+            
+            if not created:
+                payment.status = Payment.Status.FAILED
+                payment.failure_reason = failure_reason or 'Payment failed'
+                payment.failure_code = failure_code or 'GATEWAY_ERROR'
+                if transaction_id:
+                    payment.transaction_id = transaction_id
+                payment.save()
+            
+            # Broadcast payment.failed event
+            EventBroadcastService.broadcast_to_multiple(
+                event_type='payment.failed',
+                aggregate_type='Payment',
+                aggregate_id=str(payment.id),
+                payload={
+                    **PaymentSerializer(payment).data,
+                    'failure_reason': payment.failure_reason,
+                    'failure_code': payment.failure_code,
+                },
+                customer_id=payment.user.id,
+                restaurant_id=order.restaurant.id,
+                include_admin=True,
+            )
+            
+            return Response({
+                'status': 'failed',
+                'payment': PaymentSerializer(payment).data,
+                'message': failure_reason or 'Payment failed'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Handle successful payment
+        if not transaction_id:
+            # Generate one if missing for some reason
+            transaction_id = f"TXN-{uuid.uuid4().hex[:12].upper()}"
+        
+        # Create or update payment
         payment, created = Payment.objects.get_or_create(
             order=order,
             defaults={
                 'user': request.user,
                 'method_type': payment_method or Payment.PaymentMethodType.CASH,
                 'amount': order.total_amount,
-                'transaction_id': transaction_id or f"TXN-FAIL-{uuid.uuid4().hex[:12].upper()}",
-                'status': Payment.Status.FAILED,
-                'failure_reason': failure_reason or 'Payment failed',
-                'failure_code': failure_code or 'GATEWAY_ERROR',
+                'transaction_id': transaction_id,
+                'status': Payment.Status.COMPLETED,
+                'processed_at': timezone.now(),
             }
         )
         
         if not created:
-            payment.status = Payment.Status.FAILED
-            payment.failure_reason = failure_reason or 'Payment failed'
-            payment.failure_code = failure_code or 'GATEWAY_ERROR'
-            if transaction_id:
-                payment.transaction_id = transaction_id
+            payment.status = Payment.Status.COMPLETED
+            payment.transaction_id = transaction_id
+            payment.processed_at = timezone.now()
             payment.save()
         
-        # Broadcast payment.failed event
+        # Update order status
+        if order.status == Order.Status.PENDING:
+            order.status = Order.Status.ACCEPTED
+            order.save()
+        
+        # Broadcast payment.captured event
         EventBroadcastService.broadcast_to_multiple(
-            event_type='payment.failed',
+            event_type='payment.captured',
             aggregate_type='Payment',
             aggregate_id=str(payment.id),
-            payload={
-                **PaymentSerializer(payment).data,
-                'failure_reason': payment.failure_reason,
-                'failure_code': payment.failure_code,
-            },
+            payload=PaymentSerializer(payment).data,
             customer_id=payment.user.id,
             restaurant_id=order.restaurant.id,
             include_admin=True,
         )
         
-        # Optionally cancel order if payment fails
-        # order.status = Order.Status.CANCELLED
-        # order.cancellation_reason = f"Payment failed: {failure_reason}"
-        # order.cancelled_at = timezone.now()
-        # order.save()
-        
         return Response({
-            'status': 'failed',
-            'payment': PaymentSerializer(payment).data,
-            'message': failure_reason or 'Payment failed'
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
-    # Handle successful payment
-    if not transaction_id:
-        return Response({'error': 'transaction_id is required for successful payment'}, 
-                       status=status.HTTP_400_BAD_REQUEST)
-    
-    # Create or update payment
-    payment, created = Payment.objects.get_or_create(
-        order=order,
-        defaults={
-            'user': request.user,
-            'method_type': payment_method or Payment.PaymentMethodType.CASH,
-            'amount': order.total_amount,
-            'transaction_id': transaction_id,
-            'status': Payment.Status.COMPLETED,
-            'processed_at': timezone.now(),
-        }
-    )
-    
-    if not created:
-        payment.status = Payment.Status.COMPLETED
-        payment.transaction_id = transaction_id
-        payment.processed_at = timezone.now()
-        payment.save()
-    
-    # Update order status
-    if order.status == Order.Status.PENDING:
-        order.status = Order.Status.CONFIRMED
-        order.save()
-    
-    # Broadcast payment.captured event
-    EventBroadcastService.broadcast_to_multiple(
-        event_type='payment.captured',
-        aggregate_type='Payment',
-        aggregate_id=str(payment.id),
-        payload=PaymentSerializer(payment).data,
-        customer_id=payment.user.id,
-        restaurant_id=order.restaurant.id,
-        include_admin=True,
-    )
-    
-    return Response({
-        'status': 'completed',
-        'payment': PaymentSerializer(payment).data
-    })
+            'status': 'completed',
+            'payment': PaymentSerializer(payment).data
+        })
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class WalletViewSet(viewsets.ModelViewSet):
@@ -465,3 +477,37 @@ class WalletViewSet(viewsets.ModelViewSet):
         transactions = WalletTransaction.objects.filter(wallet=wallet).order_by('-created_at')[:50]
         serializer = WalletTransactionSerializer(transactions, many=True)
         return Response({'transactions': serializer.data})
+
+
+class SettlementCycleViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet for settlement cycles"""
+    serializer_class = SettlementCycleSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'ADMIN':
+            return SettlementCycle.objects.filter(is_deleted=False).order_by('-cycle_end')
+        elif user.role == 'RESTAURANT':
+            return SettlementCycle.objects.filter(
+                restaurant__owner=user,
+                is_deleted=False
+            ).order_by('-cycle_end')
+        return SettlementCycle.objects.none()
+
+
+class PayoutViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet for payouts"""
+    serializer_class = PayoutSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'ADMIN':
+            return Payout.objects.filter(is_deleted=False).order_by('-initiated_at')
+        elif user.role == 'RESTAURANT':
+            return Payout.objects.filter(
+                restaurant__owner=user,
+                is_deleted=False
+            ).order_by('-initiated_at')
+        return Payout.objects.none()

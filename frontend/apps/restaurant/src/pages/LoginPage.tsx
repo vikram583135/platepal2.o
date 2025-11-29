@@ -39,11 +39,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zomato-lightGray py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center page-background py-12 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md page-content">
         <BackendStatus />
-        <Card className="w-full bg-white shadow-xl">
-        <CardHeader className="bg-zomato-red text-white rounded-t-lg">
+        <Card className="w-full bg-white/95 backdrop-blur shadow-xl border-red-100">
+        <CardHeader className="bg-gradient-to-r from-zomato-red to-zomato-darkRed text-white rounded-t-lg">
           <div className="flex items-center justify-center gap-2 mb-2">
             <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
               <span className="text-zomato-red font-bold text-xl">P</span>

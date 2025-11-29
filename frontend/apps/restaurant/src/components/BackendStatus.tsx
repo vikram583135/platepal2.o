@@ -8,9 +8,9 @@ export function BackendStatus() {
 
   useEffect(() => {
     const checkBackend = async () => {
-      const url = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
+      const url = (import.meta as any).env.VITE_API_BASE_URL || 'http://localhost:8000/api'
       setApiUrl(url)
-      
+
       try {
         // Try to hit any endpoint - if we get a response (even 404/401), server is running
         await apiClient.get('/restaurants/restaurants/', { timeout: 3000 })
@@ -54,4 +54,3 @@ export function BackendStatus() {
     </div>
   )
 }
-

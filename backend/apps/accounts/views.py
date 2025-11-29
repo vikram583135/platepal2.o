@@ -35,15 +35,15 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
 class UserViewSet(viewsets.ModelViewSet):
     """User viewset"""
-    queryset = User.objects.filter(is_deleted=False)
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
         user = self.request.user
+        queryset = User.objects.filter(is_deleted=False)
         if user.role == User.Role.ADMIN:
-            return self.queryset
-        return self.queryset.filter(id=user.id)
+            return queryset
+        return queryset.filter(id=user.id)
     
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def me(self, request):

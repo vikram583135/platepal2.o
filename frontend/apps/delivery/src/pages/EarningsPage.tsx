@@ -88,7 +88,7 @@ export default function EarningsPage() {
 
   const handleInstantPayout = () => {
     if (wallet && wallet.balance > 0) {
-      if (confirm(`Withdraw ${formatUtils.formatCurrency(wallet.balance, wallet.currency || 'USD')}?`)) {
+      if (confirm(`Withdraw ${formatUtils.formatCurrency(wallet.balance, wallet.currency || 'INR')}?`)) {
         instantPayoutMutation.mutate(wallet.balance)
       }
     }
@@ -148,7 +148,7 @@ export default function EarningsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-600 mb-2">
-              {formatUtils.formatCurrency(wallet?.balance || 0, wallet?.currency || 'USD')}
+              {formatUtils.formatCurrency(wallet?.balance || 0, wallet?.currency || 'INR')}
             </div>
             <Button
               onClick={handleInstantPayout}
@@ -157,7 +157,7 @@ export default function EarningsPage() {
             >
               {instantPayoutMutation.isPending
                 ? 'Processing...'
-                : `Withdraw ${formatUtils.formatCurrency(wallet?.balance || 0, wallet?.currency || 'USD')}`}
+                : `Withdraw ${formatUtils.formatCurrency(wallet?.balance || 0, wallet?.currency || 'INR')}`}
             </Button>
           </CardContent>
         </Card>
@@ -168,7 +168,7 @@ export default function EarningsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-yellow-600 mb-2">
-              {formatUtils.formatCurrency(wallet?.pending_balance || 0, wallet?.currency || 'USD')}
+              {formatUtils.formatCurrency(wallet?.pending_balance || 0, wallet?.currency || 'INR')}
             </div>
             <p className="text-sm text-gray-600">
               Earnings waiting to be processed
@@ -182,7 +182,7 @@ export default function EarningsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-600 mb-2">
-              {formatUtils.formatCurrency(wallet?.total_earnings || 0, wallet?.currency || 'USD')}
+              {formatUtils.formatCurrency(wallet?.total_earnings || 0, wallet?.currency || 'INR')}
             </div>
             <p className="text-sm text-gray-600">
               All-time earnings
@@ -203,7 +203,7 @@ export default function EarningsPage() {
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Total Earnings</p>
                   <p className="text-2xl font-bold text-green-600">
-                    {formatUtils.formatCurrency(breakdown.total_earnings || 0, wallet?.currency || 'USD')}
+                    {formatUtils.formatCurrency(breakdown.total_earnings || 0, wallet?.currency || 'INR')}
                   </p>
                 </div>
                 <div>
@@ -217,14 +217,14 @@ export default function EarningsPage() {
                       (breakdown.total_deliveries || 0) > 0
                         ? (breakdown.total_earnings || 0) / (breakdown.total_deliveries || 1)
                         : 0,
-                      wallet?.currency || 'USD'
+                      wallet?.currency || 'INR'
                     )}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Total Tips</p>
                   <p className="text-2xl font-bold text-blue-600">
-                    {formatUtils.formatCurrency(breakdown.tip_total || 0, wallet?.currency || 'USD')}
+                    {formatUtils.formatCurrency(breakdown.tip_total || 0, wallet?.currency || 'INR')}
                   </p>
                 </div>
               </div>
@@ -233,20 +233,20 @@ export default function EarningsPage() {
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Base Fee</p>
                   <p className="font-semibold">
-                    {formatUtils.formatCurrency(breakdown.base_fee_total || 0, wallet?.currency || 'USD')}
+                    {formatUtils.formatCurrency(breakdown.base_fee_total || 0, wallet?.currency || 'INR')}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Distance Fee</p>
                   <p className="font-semibold">
-                    {formatUtils.formatCurrency(breakdown.distance_fee_total || 0, wallet?.currency || 'USD')}
+                    {formatUtils.formatCurrency(breakdown.distance_fee_total || 0, wallet?.currency || 'INR')}
                   </p>
                 </div>
                 {breakdown.surge_bonus_total > 0 && (
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Surge Bonus</p>
                     <p className="font-semibold text-orange-600">
-                      {formatUtils.formatCurrency(breakdown.surge_bonus_total || 0, wallet?.currency || 'USD')}
+                      {formatUtils.formatCurrency(breakdown.surge_bonus_total || 0, wallet?.currency || 'INR')}
                     </p>
                   </div>
                 )}
@@ -254,7 +254,7 @@ export default function EarningsPage() {
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Incentives</p>
                     <p className="font-semibold text-purple-600">
-                      {formatUtils.formatCurrency(breakdown.incentives_total || 0, wallet?.currency || 'USD')}
+                      {formatUtils.formatCurrency(breakdown.incentives_total || 0, wallet?.currency || 'INR')}
                     </p>
                   </div>
                 )}
@@ -273,7 +273,7 @@ export default function EarningsPage() {
                   {breakdown.by_day.map((day, index) => (
                     <div key={index} className="flex items-center space-x-4">
                       <div className="w-24 text-sm font-medium text-gray-700">
-                        {formatUtils.formatDate(day.date, 'MMM dd')}
+                        {formatUtils.formatDate(day.date, { month: 'short', day: '2-digit' })}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
@@ -281,18 +281,17 @@ export default function EarningsPage() {
                             {day.deliveries} {day.deliveries === 1 ? 'delivery' : 'deliveries'}
                           </span>
                           <span className="font-semibold text-green-600">
-                            {formatUtils.formatCurrency(day.earnings, wallet?.currency || 'USD')}
+                            {formatUtils.formatCurrency(day.earnings, wallet?.currency || 'INR')}
                           </span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
                             className="bg-green-600 h-2 rounded-full transition-all"
                             style={{
-                              width: `${
-                                breakdown.total_earnings > 0
+                              width: `${breakdown.total_earnings > 0
                                   ? (day.earnings / breakdown.total_earnings) * 100
                                   : 0
-                              }%`,
+                                }%`,
                             }}
                           ></div>
                         </div>
@@ -327,18 +326,17 @@ export default function EarningsPage() {
                   </div>
                   <div className="text-right">
                     <p
-                      className={`font-semibold ${
-                        transaction.transaction_type === 'EARNING'
+                      className={`font-semibold ${transaction.transaction_type === 'EARNING'
                           ? 'text-green-600'
                           : transaction.transaction_type === 'WITHDRAWAL'
-                          ? 'text-red-600'
-                          : 'text-gray-600'
-                      }`}
+                            ? 'text-red-600'
+                            : 'text-gray-600'
+                        }`}
                     >
                       {transaction.transaction_type === 'WITHDRAWAL' ? '-' : '+'}
                       {formatUtils.formatCurrency(
                         Math.abs(transaction.amount),
-                        wallet?.currency || 'USD'
+                        wallet?.currency || 'INR'
                       )}
                     </p>
                     <Badge
@@ -346,8 +344,8 @@ export default function EarningsPage() {
                         transaction.status === 'COMPLETED'
                           ? 'default'
                           : transaction.status === 'PENDING'
-                          ? 'outline'
-                          : 'destructive'
+                            ? 'outline'
+                            : 'destructive'
                       }
                       className="mt-1"
                     >

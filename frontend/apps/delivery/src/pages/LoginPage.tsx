@@ -95,11 +95,11 @@ export default function LoginPage() {
   const biometricAvailable = localStorage.getItem('biometric_id') !== null
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">Delivery Rider Login</CardTitle>
-          <CardDescription className="text-center">
+    <div className="min-h-screen flex items-center justify-center delivery-page-background px-4">
+      <Card className="w-full max-w-md delivery-card border-emerald-200">
+        <CardHeader className="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-t-lg">
+          <CardTitle className="text-2xl font-bold text-center text-white">Delivery Rider Login</CardTitle>
+          <CardDescription className="text-center text-white/90">
             Sign in to your delivery account
           </CardDescription>
         </CardHeader>
@@ -140,7 +140,7 @@ export default function LoginPage() {
                 )}
                 <Button
                   type="submit"
-                  className="w-full"
+                  className="w-full delivery-button-primary"
                   disabled={loginMutation.isPending}
                 >
                   {loginMutation.isPending ? 'Logging in...' : 'Login'}

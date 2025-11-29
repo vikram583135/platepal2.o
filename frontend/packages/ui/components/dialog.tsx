@@ -16,7 +16,7 @@ interface DialogProps extends React.HTMLAttributes<HTMLDivElement> {
 const Dialog = React.forwardRef<HTMLDivElement, DialogProps>(
   ({ className, open = false, onOpenChange, children, ...props }, ref) => {
     const contextValue = React.useMemo(
-      () => ({ open, onOpenChange: onOpenChange || (() => {}) }),
+      () => ({ open, onOpenChange: onOpenChange || (() => { }) }),
       [open, onOpenChange]
     )
 
@@ -27,7 +27,7 @@ const Dialog = React.forwardRef<HTMLDivElement, DialogProps>(
         </DialogContext.Provider>
       )
     }
-    
+
     return (
       <DialogContext.Provider value={contextValue}>
         <div
@@ -36,7 +36,7 @@ const Dialog = React.forwardRef<HTMLDivElement, DialogProps>(
           onClick={() => onOpenChange?.(false)}
           {...props}
         >
-          <div className="fixed inset-0 bg-black/50" />
+          <div className="fixed inset-0 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
           <div className="relative z-50" onClick={(e) => e.stopPropagation()}>
             {children}
           </div>
@@ -54,7 +54,7 @@ interface DialogTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 const DialogTrigger = React.forwardRef<HTMLButtonElement, DialogTriggerProps>(
   ({ className, asChild, children, onClick, ...props }, ref) => {
     const context = React.useContext(DialogContext)
-    
+
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
       onClick?.(e)
       if (context) {
@@ -92,12 +92,12 @@ const DialogContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTML
   ({ className, children, ...props }, ref) => {
     const context = React.useContext(DialogContext)
     if (!context?.open) return null
-    
+
     return (
       <div
         ref={ref}
         className={cn(
-          "bg-white rounded-lg shadow-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto",
+          "bg-background border text-foreground rounded-lg shadow-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
           className
         )}
         {...props}
@@ -135,7 +135,7 @@ const DialogDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttri
   ({ className, ...props }, ref) => (
     <p
       ref={ref}
-      className={cn("text-sm text-gray-500", className)}
+      className={cn("text-sm text-muted-foreground", className)}
       {...props}
     />
   )

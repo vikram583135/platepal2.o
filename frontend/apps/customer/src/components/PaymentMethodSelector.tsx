@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CreditCard, Smartphone, Wallet, Banknote, Building2 } from 'lucide-react'
 import { Button } from '@/packages/ui/components/button'
 import { Input } from '@/packages/ui/components/input'
@@ -11,6 +11,8 @@ interface PaymentMethodSelectorProps {
   savedCards?: any[]
   onCardSelect?: (card: any) => void
   selectedCard?: any
+  onPaymentDetailsChange?: (details: any) => void
+  disabled?: boolean
 }
 
 export default function PaymentMethodSelector({
@@ -19,6 +21,8 @@ export default function PaymentMethodSelector({
   savedCards = [],
   onCardSelect,
   selectedCard,
+  onPaymentDetailsChange,
+  disabled = false,
 }: PaymentMethodSelectorProps) {
   const [showCardForm, setShowCardForm] = useState(false)
   const [cardData, setCardData] = useState({
@@ -30,6 +34,35 @@ export default function PaymentMethodSelector({
   })
   const [upiId, setUpiId] = useState('')
   const [walletProvider, setWalletProvider] = useState('paytm')
+
+  // Notify parent of payment details changes
+  useEffect(() => {
+    if (!onPaymentDetailsChange) return
+
+    if (selectedMethod === 'CARD' && selectedCard) {
+      // Using saved card
+      onPaymentDetailsChange({ cardId: selectedCard.id })
+    } else if (selectedMethod === 'CARD' && cardData.number && cardData.expiry && cardData.cvv && cardData.name) {
+      // New card entered
+      onPaymentDetailsChange({
+        cardData: {
+          number: cardData.number,
+          expiry: cardData.expiry,
+          cvv: cardData.cvv,
+          name: cardData.name,
+          save_card: cardData.save_card,
+        },
+      })
+    } else if (selectedMethod === 'UPI' && upiId) {
+      onPaymentDetailsChange({ upiId })
+    } else if (selectedMethod === 'WALLET' && walletProvider) {
+      onPaymentDetailsChange({ walletProvider })
+    } else if (selectedMethod === 'CASH' || selectedMethod === 'NET_BANKING') {
+      onPaymentDetailsChange(null)
+    } else {
+      onPaymentDetailsChange(null)
+    }
+  }, [selectedMethod, selectedCard, cardData, upiId, walletProvider, onPaymentDetailsChange])
 
   const paymentMethods = [
     { id: 'CARD', label: 'Credit/Debit Card', icon: CreditCard },
@@ -51,11 +84,12 @@ export default function PaymentMethodSelector({
               key={method.id}
               type="button"
               onClick={() => onSelectMethod(method.id)}
+              disabled={disabled}
               className={`p-4 border-2 rounded-lg text-left transition-all ${
                 selectedMethod === method.id
                   ? 'border-primary-600 bg-primary-50'
                   : 'border-gray-300 hover:border-primary-300'
-              }`}
+              } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               <Icon className="w-6 h-6 mb-2 text-primary-600" />
               <div className="font-medium text-sm">{method.label}</div>
@@ -74,11 +108,12 @@ export default function PaymentMethodSelector({
                 key={card.id}
                 type="button"
                 onClick={() => onCardSelect?.(card)}
+                disabled={disabled}
                 className={`w-full p-3 border rounded-lg text-left ${
                   selectedCard?.id === card.id
                     ? 'border-primary-600 bg-primary-50'
                     : 'border-gray-300'
-                }`}
+                } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -97,6 +132,7 @@ export default function PaymentMethodSelector({
             variant="outline"
             className="mt-2"
             onClick={() => setShowCardForm(true)}
+            disabled={disabled}
           >
             Use New Card
           </Button>
@@ -115,6 +151,7 @@ export default function PaymentMethodSelector({
                 value={cardData.number}
                 onChange={(e) => setCardData({ ...cardData, number: e.target.value })}
                 maxLength={19}
+                disabled={disabled}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -126,6 +163,7 @@ export default function PaymentMethodSelector({
                   value={cardData.expiry}
                   onChange={(e) => setCardData({ ...cardData, expiry: e.target.value })}
                   maxLength={5}
+                  disabled={disabled}
                 />
               </div>
               <div>
@@ -136,6 +174,7 @@ export default function PaymentMethodSelector({
                   value={cardData.cvv}
                   onChange={(e) => setCardData({ ...cardData, cvv: e.target.value })}
                   maxLength={4}
+                  disabled={disabled}
                 />
               </div>
             </div>
@@ -146,6 +185,7 @@ export default function PaymentMethodSelector({
                 placeholder="John Doe"
                 value={cardData.name}
                 onChange={(e) => setCardData({ ...cardData, name: e.target.value })}
+                disabled={disabled}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -174,6 +214,7 @@ export default function PaymentMethodSelector({
                 placeholder="yourname@paytm"
                 value={upiId}
                 onChange={(e) => setUpiId(e.target.value)}
+                disabled={disabled}
               />
             </div>
             <div className="text-sm text-gray-600">
@@ -193,6 +234,7 @@ export default function PaymentMethodSelector({
                 value={walletProvider}
                 onChange={(e) => setWalletProvider(e.target.value)}
                 className="w-full p-2 border rounded-lg"
+                disabled={disabled}
               >
                 <option value="paytm">Paytm</option>
                 <option value="phonepe">PhonePe</option>

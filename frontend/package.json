@@ -23,11 +23,13 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",
+    "@radix-ui/react-slot": "^1.2.4",
     "@tanstack/react-query": "^5.12.0",
     "axios": "^1.6.2",
     "clsx": "^2.0.0",
     "date-fns": "^2.30.0",
     "framer-motion": "^10.16.16",
+    "jspdf": "^3.0.4",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.294.0",
     "react": "^18.2.0",

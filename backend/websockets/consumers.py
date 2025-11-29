@@ -19,18 +19,36 @@ class BaseConsumer(AsyncJsonWebsocketConsumer):
     
     async def connect(self):
         """Authenticate WebSocket connection"""
-        self.user = await self.authenticate()
-        if not self.user or isinstance(self.user, AnonymousUser):
-            await self.close()
-            return
-        
-        await self.accept()
-        await self.add_to_group()
-        
-        # Handle since_event_id replay if provided
-        since_event_id = self.scope.get('query_string', b'').decode().split('since_event_id=')[-1].split('&')[0]
-        if since_event_id:
-            await self.replay_events(since_event_id)
+        try:
+            self.user = await self.authenticate()
+            if not self.user or isinstance(self.user, AnonymousUser):
+                # Log authentication failure but don't expose details
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"WebSocket connection rejected: Invalid or missing authentication token")
+                await self.close(code=4001)  # Unauthorized
+                return
+            
+            await self.accept()
+            await self.add_to_group()
+            
+            # Handle since_event_id replay if provided
+            query_string = self.scope.get('query_string', b'').decode()
+            since_event_id = None
+            if 'since_event_id=' in query_string:
+                since_event_id = query_string.split('since_event_id=')[-1].split('&')[0]
+            
+            if since_event_id:
+                await self.replay_events(since_event_id)
+        except Exception as e:
+            # Log error and close connection gracefully
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"WebSocket connection error: {str(e)}", exc_info=True)
+            try:
+                await self.close(code=1011)  # Internal error
+            except:
+                pass
     
     async def disconnect(self, close_code):
         """Handle disconnection"""
@@ -40,7 +58,12 @@ class BaseConsumer(AsyncJsonWebsocketConsumer):
         """Authenticate user from token"""
         try:
             # Get token from query string or headers
-            token = self.scope.get('query_string', b'').decode().split('token=')[-1].split('&')[0]
+            query_string = self.scope.get('query_string', b'').decode()
+            token = None
+            
+            if 'token=' in query_string:
+                token = query_string.split('token=')[-1].split('&')[0]
+            
             if not token:
                 # Try to get from headers
                 headers = dict(self.scope.get('headers', []))
@@ -57,9 +80,23 @@ class BaseConsumer(AsyncJsonWebsocketConsumer):
             user_id = decoded_data.get('user_id')
             
             if user_id:
-                return await database_sync_to_async(User.objects.get)(id=user_id)
-        except (TokenError, InvalidToken, User.DoesNotExist, Exception):
-            pass
+                try:
+                    user = await database_sync_to_async(User.objects.get)(id=user_id)
+                    # Check if user is active and not deleted
+                    if user.is_active and not user.is_deleted:
+                        return user
+                except User.DoesNotExist:
+                    pass
+        except (TokenError, InvalidToken) as e:
+            # Token is invalid or expired
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.debug(f"WebSocket authentication failed: {str(e)}")
+        except Exception as e:
+            # Other errors
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"WebSocket authentication error: {str(e)}", exc_info=True)
         
         return AnonymousUser()
     

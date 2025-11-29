@@ -59,6 +59,8 @@ INSTALLED_APPS = [
     'apps.events',
 ]
 
+import sys
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -68,11 +70,16 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'apps.accounts.middleware.IdempotencyMiddleware',
-    'apps.accounts.middleware.AuditLogMiddleware',
-    'apps.accounts.middleware.RateLimitMiddleware',
-    'apps.accounts.middleware.BotDetectionMiddleware',
 ]
+
+# Skip custom middleware during tests to avoid database access during imports
+if 'test' not in sys.argv:
+    MIDDLEWARE.extend([
+        'apps.accounts.middleware.IdempotencyMiddleware',
+        'apps.accounts.middleware.AuditLogMiddleware',
+        'apps.accounts.middleware.RateLimitMiddleware',
+        'apps.accounts.middleware.BotDetectionMiddleware',
+    ])
 
 ROOT_URLCONF = 'platepal.urls'
 

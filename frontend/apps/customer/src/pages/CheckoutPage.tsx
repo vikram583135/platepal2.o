@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useCartStore } from '../stores/cartStore'
 import { useAuthStore } from '../stores/authStore'
@@ -13,13 +13,73 @@ import PaymentMethodSelector from '../components/PaymentMethodSelector'
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
-  const { items, restaurantId, getTotal, clearCart, isGuest, setGuestMode } = useCartStore()
+  const cartStore = useCartStore()
+  const { items, restaurantId: storeRestaurantId, getTotal, clearCart, isGuest, setGuestMode, getItemCount } = cartStore
   const { isAuthenticated } = useAuthStore()
   const [selectedAddress, setSelectedAddress] = useState<number | null>(null)
   const [tip, setTip] = useState(0)
   const [paymentMethod, setPaymentMethod] = useState<string | null>(null)
   const [selectedCard, setSelectedCard] = useState<any>(null)
+  const [paymentDetails, setPaymentDetails] = useState<any>(null)
   const [contactlessDelivery, setContactlessDelivery] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  // Use restaurantId from store
+  // If missing, we'll handle it during validation and order creation
+  const restaurantId = storeRestaurantId
+
+  // Wait for cart store to hydrate from localStorage
+  useEffect(() => {
+    let retryCount = 0
+    const maxRetries = 5
+
+    const checkHydration = () => {
+      // Check localStorage directly as fallback
+      try {
+        const stored = localStorage.getItem('cart-storage')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          const hasStoredItems = parsed?.state?.items && Array.isArray(parsed.state.items) && parsed.state.items.length > 0
+
+          if (hasStoredItems) {
+            // Items exist in localStorage, wait a bit more for Zustand to hydrate
+            setTimeout(() => {
+              setIsHydrated(true)
+            }, 100)
+            return
+          }
+        }
+      } catch (e) {
+        // localStorage read failed, continue with normal check
+      }
+
+      // Check store state
+      const storeState = cartStore
+      const hasItems = storeState.items && Array.isArray(storeState.items) && storeState.items.length > 0
+      const itemCount = storeState.getItemCount()
+
+      // If items exist or itemCount > 0, we're hydrated
+      if (hasItems || itemCount > 0) {
+        setIsHydrated(true)
+        return
+      }
+
+      // Retry mechanism for slow devices
+      if (retryCount < maxRetries) {
+        retryCount++
+        setTimeout(checkHydration, 100 * retryCount)
+      } else {
+        // Max retries reached, consider hydrated anyway
+        setIsHydrated(true)
+      }
+    }
+
+    // Initial check
+    const timer = setTimeout(checkHydration, 50)
+
+    return () => clearTimeout(timer)
+  }, [items, cartStore])
 
   // Check if user needs to login
   useEffect(() => {
@@ -30,22 +90,48 @@ export default function CheckoutPage() {
     }
   }, [isAuthenticated, isGuest, setGuestMode])
 
-  const { data: addresses } = useQuery({
+  const { data: addresses, isLoading: addressesLoading, error: addressesError } = useQuery({
     queryKey: ['addresses'],
     queryFn: async () => {
-      const response = await apiClient.get('/auth/addresses/')
-      return response.data.results || response.data
+      try {
+        const response = await apiClient.get('/auth/addresses/')
+        return response.data.results || response.data || []
+      } catch (error: any) {
+        console.error('Failed to fetch addresses:', error)
+        throw error
+      }
     },
     enabled: isAuthenticated, // Only fetch if authenticated
+    retry: 1,
   })
 
-  const { data: savedCards } = useQuery({
+  // Auto-select default address or first address
+  useEffect(() => {
+    if (addresses && addresses.length > 0 && !selectedAddress) {
+      // First try to find default address
+      const defaultAddress = addresses.find((addr: any) => addr.is_default)
+      if (defaultAddress) {
+        setSelectedAddress(defaultAddress.id)
+      } else {
+        // Otherwise select first address
+        setSelectedAddress(addresses[0].id)
+      }
+    }
+  }, [addresses, selectedAddress])
+
+  const { data: savedCards, isLoading: cardsLoading } = useQuery({
     queryKey: ['payment-methods'],
     queryFn: async () => {
-      const response = await apiClient.get('/auth/payment-methods/')
-      return response.data.results || response.data || []
+      try {
+        const response = await apiClient.get('/auth/payment-methods/')
+        return response.data.results || response.data || []
+      } catch (error: any) {
+        console.error('Failed to fetch payment methods:', error)
+        return []
+      }
     },
     enabled: isAuthenticated,
+    retry: 1,
   })
 
   // Calculate subtotal early for use in queries
@@ -56,64 +142,108 @@ export default function CheckoutPage() {
   const { data: availableOffers } = useQuery({
     queryKey: ['available-offers', restaurantId, paymentMethod, subtotal],
     queryFn: async () => {
-      const response = await apiClient.get(`/restaurants/promotions/available/?restaurant_id=${restaurantId}&order_amount=${subtotal}&payment_method=${paymentMethod || ''}`)
-      return response.data.offers || []
+      try {
+        if (!restaurantId) return []
+        const response = await apiClient.get(`/restaurants/promotions/available/?restaurant_id=${restaurantId}&order_amount=${subtotal}&payment_method=${paymentMethod || ''}`)
+        return response.data.offers || []
+      } catch (error: any) {
+        console.error('Failed to fetch offers:', error)
+        return []
+      }
     },
     enabled: !!restaurantId && subtotal > 0,
+    retry: 1,
   })
 
   const createOrderMutation = useMutation({
     mutationFn: async (orderData: any) => {
-      const response = await apiClient.post('/orders/orders/', orderData)
-      return response.data
+      try {
+        const response = await apiClient.post('/orders/orders/', orderData)
+        return response.data
+      } catch (error: any) {
+        console.error('Order creation error:', error)
+        throw error
+      }
     },
     onSuccess: async (orderData) => {
       // If COD, proceed directly
       if (paymentMethod === 'CASH') {
         clearCart()
-        navigate(`/orders/${orderData.id}`)
+        navigate(`/orders/${orderData.id}`, { state: { orderPlaced: true } })
         return
       }
 
       // For other payment methods, create payment intent
       if (paymentMethod && paymentMethod !== 'CASH') {
         try {
-          const paymentResponse = await apiClient.post('/payments/create_payment_intent/', {
+          const paymentPayload: any = {
             order_id: orderData.id,
             payment_method: paymentMethod,
             amount: total,
-          })
-          
-          // Mock payment confirmation (in production, integrate with gateway)
-          await apiClient.post('/payments/confirm_payment/', {
+          }
+
+          // Add payment details based on method
+          if (paymentMethod === 'CARD' && selectedCard) {
+            paymentPayload.card_id = selectedCard.id
+          } else if (paymentMethod === 'CARD' && paymentDetails) {
+            paymentPayload.card_data = paymentDetails
+          } else if (paymentMethod === 'UPI' && paymentDetails?.upiId) {
+            paymentPayload.upi_id = paymentDetails.upiId
+          } else if (paymentMethod === 'WALLET' && paymentDetails?.walletProvider) {
+            paymentPayload.wallet_provider = paymentDetails.walletProvider
+          }
+
+          const paymentResponse = await apiClient.post('/payments/create_payment_intent/', paymentPayload)
+
+          const { payment_intent_id } = paymentResponse.data
+
+          // In a real integration, we would use the client_secret with Stripe/Razorpay SDK here
+          // For now, we simulate the confirmation call to our backend which verifies with the gateway
+
+          const confirmPayload: any = {
             order_id: orderData.id,
-            payment_intent_id: paymentResponse.data.payment_intent_id,
-            transaction_id: `TXN_${Date.now()}`,
+            payment_intent_id: payment_intent_id,
             payment_method: paymentMethod,
-          })
-          
+          }
+
+          // Add payment details to confirmation
+          if (paymentMethod === 'UPI' && paymentDetails?.upiId) {
+            confirmPayload.upi_id = paymentDetails.upiId
+          } else if (paymentMethod === 'WALLET' && paymentDetails?.walletProvider) {
+            confirmPayload.wallet_provider = paymentDetails.walletProvider
+          }
+
+          const confirmResponse = await apiClient.post('/payments/confirm_payment/', confirmPayload)
+
+          if (confirmResponse.data.status === 'failed') {
+            throw new Error(confirmResponse.data.message || 'Payment failed')
+          }
+
           clearCart()
-          navigate(`/orders/${orderData.id}`)
+          navigate(`/orders/${orderData.id}`, { state: { orderPlaced: true } })
         } catch (error: any) {
-          const errorMsg = error.response?.data?.detail || error.message || 'Payment processing failed'
-          alert(`${errorMsg}. Please try again.`)
+          console.error('Payment Processing Error:', error)
+          const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message || 'Payment processing failed'
+          alert(`Payment failed: ${errorMsg}. Your order has been created but payment is pending.`)
+          // Navigate to order page with pending payment status
+          navigate(`/orders/${orderData.id}`, { state: { paymentPending: true } })
         }
       } else {
         clearCart()
-        navigate(`/orders/${orderData.id}`)
+        navigate(`/orders/${orderData.id}`, { state: { orderPlaced: true } })
       }
     },
     onError: (error: any) => {
       // Extract error message from various possible formats
       let errorMessage = 'Order creation failed. Please try again.'
-      
+
       if (error.response?.data) {
         const errorData = error.response.data
-        
+
         // Handle DRF error format
         if (errorData.error) {
-          errorMessage = typeof errorData.error === 'string' 
-            ? errorData.error 
+          errorMessage = typeof errorData.error === 'string'
+            ? errorData.error
             : errorData.error.message || errorData.error
         }
         // Handle field errors
@@ -150,41 +280,133 @@ export default function CheckoutPage() {
       } else if (error.message) {
         errorMessage = error.message
       }
-      
+
       alert(errorMessage)
     },
   })
 
+  // Validate form data
+  const validateForm = useCallback((): boolean => {
+    const errors: Record<string, string> = {}
+
+    if (!selectedAddress) {
+      errors.address = 'Please select a delivery address'
+    }
+
+    if (!paymentMethod) {
+      errors.payment = 'Please select a payment method'
+    }
+
+    // Validate payment method details
+    if (paymentMethod === 'CARD' && !selectedCard && !paymentDetails) {
+      errors.payment = 'Please select a saved card or enter card details'
+    } else if (paymentMethod === 'UPI' && (!paymentDetails || !paymentDetails.upiId)) {
+      errors.payment = 'Please enter your UPI ID'
+    } else if (paymentMethod === 'WALLET' && (!paymentDetails || !paymentDetails.walletProvider)) {
+      errors.payment = 'Please select a wallet provider'
+    }
+
+    // Validate tip amount
+    if (tip < 0) {
+      errors.tip = 'Tip amount cannot be negative'
+    } else if (tip > 1000) {
+      errors.tip = 'Tip amount cannot exceed ₹1000'
+    }
+
+    // Validate cart
+    if (!items || items.length === 0) {
+      errors.cart = 'Your cart is empty'
+    }
+
+    if (!restaurantId) {
+      // Try to recover restaurantId from localStorage if possible or warn user
+      console.error('Restaurant ID missing in checkout')
+      errors.restaurant = 'Session expired or invalid. Please return to the restaurant page and add items again.'
+    }
+
+    setValidationErrors(errors)
+    return Object.keys(errors).length === 0
+  }, [selectedAddress, paymentMethod, selectedCard, paymentDetails, tip, items, restaurantId])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedAddress || !restaurantId) {
-      alert('Please select a delivery address')
-      return
-    }
-    if (!paymentMethod) {
-      alert('Please select a payment method')
+    setValidationErrors({})
+
+    if (!validateForm()) {
+      // Show first error
+      const firstError = Object.values(validationErrors)[0]
+      if (firstError) {
+        alert(firstError)
+      }
       return
     }
 
-    const orderItems = items.map((item) => ({
-      menu_item_id: item.menuItem.id,
-      quantity: item.quantity,
-      selected_modifiers: item.selectedModifiers.map((m) => ({
-        modifier_id: m.id,
-        name: m.name,
-        price: m.price,
-      })),
-    }))
+    // Validate items structure before mapping - handle multiple formats
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      alert('Cart items are invalid. Please add items to your cart again.')
+      return
+    }
+
+    const orderItems = items
+      .filter((item) => {
+        // Validate item structure
+        return item && item.menuItem && item.menuItem.id
+      })
+      .map((item) => {
+        const menuItem = item.menuItem
+        const modifiers = item.selectedModifiers || []
+
+        return {
+          menu_item_id: menuItem.id,
+          quantity: item.quantity || 1,
+          selected_modifiers: modifiers.map((m: any) => ({
+            modifier_id: m.id,
+            name: m.name || '',
+            price: m.price || 0,
+          })),
+        }
+      })
+      .filter((item) => item.menu_item_id) // Final filter to ensure we have valid IDs
+
+    if (orderItems.length === 0) {
+      alert('No valid items in cart. Please add items to your cart again.')
+      if (import.meta.env.DEV) {
+        console.error('Order items validation failed:', items)
+      }
+      return
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('Order items prepared:', orderItems)
+    }
+
+    if (!restaurantId) {
+      alert('Restaurant information is missing. Please add items to your cart again from a restaurant page.')
+      if (import.meta.env.DEV) {
+        console.error('Cannot create order: restaurantId is missing', { items, restaurantId })
+      }
+      return
+    }
 
     createOrderMutation.mutate({
       restaurant_id: restaurantId,
       delivery_address_id: selectedAddress,
       order_type: 'DELIVERY',
       items: orderItems,
-      tip_amount: tip,
+      tip_amount: Math.max(0, Math.min(tip, 1000)), // Clamp tip between 0 and 1000
       contactless_delivery: contactlessDelivery,
     })
   }
+
+  // Handle payment details from PaymentMethodSelector
+  const handlePaymentDetailsChange = useCallback((details: any) => {
+    setPaymentDetails(details)
+    setValidationErrors((prev) => {
+      const newErrors = { ...prev }
+      delete newErrors.payment
+      return newErrors
+    })
+  }, [])
 
   // Show login prompt for guests
   if (!isAuthenticated) {
@@ -213,8 +435,59 @@ export default function CheckoutPage() {
     )
   }
 
-  // Check if cart is empty
-  if (!items || items.length === 0 || !restaurantId) {
+  // Wait for hydration before checking cart
+  if (!isHydrated) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Card>
+          <CardContent className="p-8 text-center">
+            <p className="text-gray-600">Loading cart...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Check if cart is empty - use multiple checks with fallbacks
+  const itemCount = getItemCount()
+  const subtotalCheck = getTotal()
+  const rawItemsLength = items?.length || 0
+
+  // Multiple checks to determine if we have items:
+  // 1. Validated item count > 0
+  // 2. Raw items array has items
+  // 3. Subtotal > 0
+  // Show form if ANY of these are true (be very lenient)
+  const hasItemsByCount = itemCount > 0
+  const hasItemsByArray = rawItemsLength > 0
+  const hasItemsByTotal = subtotalCheck > 0
+
+  // Show form if we have items by any measure
+  // Don't require restaurantId to show form - we'll extract it or handle it during order creation
+  const shouldShowForm = hasItemsByCount || hasItemsByArray || hasItemsByTotal
+
+  // Debug logging (remove in production)
+  if (import.meta.env.DEV) {
+    console.log('CheckoutPage - Cart State:', {
+      itemCount,
+      itemsLength: rawItemsLength,
+      restaurantId,
+      subtotal: subtotalCheck,
+      hasItemsByCount,
+      hasItemsByArray,
+      hasItemsByTotal,
+      shouldShowForm,
+      items: items?.map((item: any) => ({
+        hasMenuItem: !!(item?.menuItem || item?.menu_item),
+        menuItemId: item?.menuItem?.id || item?.menu_item?.id || item?.menu_item,
+        quantity: item?.quantity,
+        structure: Object.keys(item || {}),
+      })),
+    })
+  }
+
+  // Only show empty message if we're absolutely sure there are no items
+  if (!shouldShowForm) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card>
@@ -223,9 +496,20 @@ export default function CheckoutPage() {
             <p className="text-gray-600 mb-6">
               Add items to your cart before checking out.
             </p>
-            <Link to="/restaurants">
-              <Button>Browse Restaurants</Button>
-            </Link>
+            <div className="flex gap-4 justify-center">
+              <Link to="/cart">
+                <Button variant="outline">View Cart</Button>
+              </Link>
+              <Link to="/restaurants">
+                <Button>Browse Restaurants</Button>
+              </Link>
+            </div>
+            {import.meta.env.DEV && (
+              <div className="mt-4 p-4 bg-gray-100 rounded text-left text-xs">
+                <strong>Debug Info:</strong>
+                <pre>{JSON.stringify({ itemCount, rawItemsLength, subtotalCheck, restaurantId }, null, 2)}</pre>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -236,6 +520,13 @@ export default function CheckoutPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="text-3xl font-bold mb-8">Checkout</h1>
 
+      {/* Debug info in development */}
+      {import.meta.env.DEV && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-xs">
+          <strong>Debug:</strong> Form is rendering. Items: {rawItemsLength}, Count: {itemCount}, Total: ₹{subtotalCheck.toFixed(2)}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
@@ -244,28 +535,56 @@ export default function CheckoutPage() {
                 <CardTitle>Delivery Address</CardTitle>
               </CardHeader>
               <CardContent>
-                {addresses && addresses.length > 0 ? (
-                  addresses.map((address: any) => (
-                    <label
-                      key={address.id}
-                      className="flex items-start gap-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50"
-                    >
-                      <input
-                        type="radio"
-                        name="address"
-                        value={address.id}
-                        checked={selectedAddress === address.id}
-                        onChange={() => setSelectedAddress(address.id)}
-                        className="mt-1"
-                      />
-                      <div>
-                        <div className="font-semibold">{address.label}</div>
-                        <div className="text-sm text-gray-600">
-                          {address.street}, {address.city}, {address.state} {address.postal_code}
+                {addressesLoading ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-600">Loading addresses...</p>
+                  </div>
+                ) : addressesError ? (
+                  <div className="text-center py-4">
+                    <p className="text-red-600 mb-4">Failed to load addresses. Please try again.</p>
+                    <Button variant="outline" onClick={() => window.location.reload()}>Retry</Button>
+                  </div>
+                ) : addresses && addresses.length > 0 ? (
+                  <>
+                    {addresses.map((address: any) => (
+                      <label
+                        key={address.id}
+                        className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50 ${selectedAddress === address.id ? 'border-primary-600 bg-primary-50' : ''
+                          }`}
+                      >
+                        <input
+                          type="radio"
+                          name="address"
+                          value={address.id}
+                          checked={selectedAddress === address.id}
+                          onChange={() => {
+                            setSelectedAddress(address.id)
+                            setValidationErrors((prev) => {
+                              const newErrors = { ...prev }
+                              delete newErrors.address
+                              return newErrors
+                            })
+                          }}
+                          className="mt-1"
+                          disabled={createOrderMutation.isPending}
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{address.label}</span>
+                            {address.is_default && (
+                              <Badge variant="outline" className="text-xs">Default</Badge>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {address.street}, {address.city}, {address.state} {address.postal_code}
+                          </div>
                         </div>
-                      </div>
-                    </label>
-                  ))
+                      </label>
+                    ))}
+                    {validationErrors.address && (
+                      <p className="text-red-600 text-sm mt-2">{validationErrors.address}</p>
+                    )}
+                  </>
                 ) : (
                   <div className="text-center py-4">
                     <p className="text-gray-600 mb-4">No addresses saved</p>
@@ -282,13 +601,21 @@ export default function CheckoutPage() {
                 <CardTitle>Tip</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-2 mb-4">
+                <div className="flex gap-2 mb-4 flex-wrap">
                   {[0, 5, 10, 15, 20].map((amount) => (
                     <Button
                       key={amount}
                       type="button"
                       variant={tip === amount ? 'default' : 'outline'}
-                      onClick={() => setTip(amount)}
+                      onClick={() => {
+                        setTip(amount)
+                        setValidationErrors((prev) => {
+                          const newErrors = { ...prev }
+                          delete newErrors.tip
+                          return newErrors
+                        })
+                      }}
+                      disabled={createOrderMutation.isPending}
                     >
                       ₹{amount}
                     </Button>
@@ -298,10 +625,27 @@ export default function CheckoutPage() {
                   type="number"
                   placeholder="Custom tip"
                   value={tip || ''}
-                  onChange={(e) => setTip(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value) || 0
+                    setTip(value)
+                    setValidationErrors((prev) => {
+                      const newErrors = { ...prev }
+                      if (value < 0 || value > 1000) {
+                        newErrors.tip = value < 0 ? 'Tip cannot be negative' : 'Tip cannot exceed ₹1000'
+                      } else {
+                        delete newErrors.tip
+                      }
+                      return newErrors
+                    })
+                  }}
                   min="0"
+                  max="1000"
                   step="0.01"
+                  disabled={createOrderMutation.isPending}
                 />
+                {validationErrors.tip && (
+                  <p className="text-red-600 text-sm mt-2">{validationErrors.tip}</p>
+                )}
               </CardContent>
             </Card>
 
@@ -310,13 +654,33 @@ export default function CheckoutPage() {
                 <CardTitle>Payment Method</CardTitle>
               </CardHeader>
               <CardContent>
-                <PaymentMethodSelector
-                  selectedMethod={paymentMethod}
-                  onSelectMethod={setPaymentMethod}
-                  savedCards={savedCards}
-                  onCardSelect={setSelectedCard}
-                  selectedCard={selectedCard}
-                />
+                {cardsLoading ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-600">Loading payment methods...</p>
+                  </div>
+                ) : (
+                  <>
+                    <PaymentMethodSelector
+                      selectedMethod={paymentMethod}
+                      onSelectMethod={(method) => {
+                        setPaymentMethod(method)
+                        setValidationErrors((prev) => {
+                          const newErrors = { ...prev }
+                          delete newErrors.payment
+                          return newErrors
+                        })
+                      }}
+                      savedCards={savedCards || []}
+                      onCardSelect={setSelectedCard}
+                      selectedCard={selectedCard}
+                      onPaymentDetailsChange={handlePaymentDetailsChange}
+                      disabled={createOrderMutation.isPending}
+                    />
+                    {validationErrors.payment && (
+                      <p className="text-red-600 text-sm mt-2">{validationErrors.payment}</p>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -414,10 +778,28 @@ export default function CheckoutPage() {
                   type="submit"
                   className="w-full"
                   size="lg"
-                  disabled={!selectedAddress || createOrderMutation.isPending}
+                  disabled={
+                    !selectedAddress ||
+                    !paymentMethod ||
+                    createOrderMutation.isPending ||
+                    addressesLoading ||
+                    cardsLoading
+                  }
                 >
-                  {createOrderMutation.isPending ? 'Placing Order...' : 'Place Order'}
+                  {createOrderMutation.isPending ? (
+                    <span className="flex items-center gap-2">
+                      <span className="animate-spin">⏳</span>
+                      Placing Order...
+                    </span>
+                  ) : (
+                    'Place Order'
+                  )}
                 </Button>
+                {Object.keys(validationErrors).length > 0 && (
+                  <p className="text-red-600 text-sm mt-2 text-center">
+                    Please fix the errors above before placing your order.
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>

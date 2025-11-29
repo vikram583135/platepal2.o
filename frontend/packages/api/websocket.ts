@@ -37,12 +37,43 @@ export class WebSocketClient {
         params.append('since_event_id', eventIdParam)
       }
       const wsUrl = `${this.url}?${params.toString()}`
-      this.ws = new WebSocket(wsUrl)
+      
+      try {
+        this.ws = new WebSocket(wsUrl)
+      } catch (error) {
+        this.isConnecting = false
+        // Silently fail - WebSocket is optional
+        if (import.meta.env.DEV) {
+          console.warn('WebSocket connection failed (ASGI server may not be running):', error)
+        }
+        resolve() // Resolve instead of reject to prevent unhandled promise rejection
+        return
+      }
+
+      // Set connection timeout
+      const connectionTimeout = setTimeout(() => {
+        if (this.ws && this.ws.readyState !== WebSocket.OPEN) {
+          this.isConnecting = false
+          if (this.ws) {
+            this.ws.close()
+            this.ws = null
+          }
+          // Silently fail - WebSocket is optional
+          if (import.meta.env.DEV) {
+            console.warn('WebSocket connection timeout (ASGI server may not be running)')
+          }
+          resolve() // Resolve instead of reject
+        }
+      }, 5000) // 5 second timeout
 
       this.ws.onopen = () => {
+        clearTimeout(connectionTimeout)
         this.isConnecting = false
         this.reconnectAttempts = 0
         this.reconnectDelay = 1000
+        if (import.meta.env.DEV) {
+          console.log('WebSocket connected successfully')
+        }
         resolve()
       }
 
@@ -55,20 +86,39 @@ export class WebSocketClient {
           }
           this.handleEvent(data)
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error)
+          if (import.meta.env.DEV) {
+            console.error('Failed to parse WebSocket message:', error)
+          }
         }
       }
 
       this.ws.onerror = (error) => {
+        clearTimeout(connectionTimeout)
         this.isConnecting = false
-        reject(error)
+        // Don't log errors in production - WebSocket is optional
+        if (import.meta.env.DEV) {
+          console.warn('WebSocket error (ASGI server may not be running). This is optional and the app will work without it.')
+        }
+        // Resolve instead of reject to prevent unhandled promise rejection
+        // WebSocket is optional functionality
+        resolve()
       }
 
-      this.ws.onclose = () => {
+      this.ws.onclose = (event) => {
+        clearTimeout(connectionTimeout)
         this.isConnecting = false
-        if (this.shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
+        
+        // Only attempt reconnect if it wasn't a normal closure and we haven't exceeded max attempts
+        if (this.shouldReconnect && 
+            this.reconnectAttempts < this.maxReconnectAttempts && 
+            event.code !== 1000) { // 1000 = normal closure
           // Reconnect with last event ID to replay missed events
           this.scheduleReconnect()
+        } else if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+          // Max retries reached - silently stop trying
+          if (import.meta.env.DEV) {
+            console.warn('WebSocket max reconnection attempts reached. Real-time updates disabled.')
+          }
         }
       }
     })
@@ -78,10 +128,20 @@ export class WebSocketClient {
     const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts), 30000)
     this.reconnectAttempts++
 
+    // Only reconnect if we haven't exceeded max attempts
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      if (import.meta.env.DEV) {
+        console.warn('WebSocket max reconnection attempts reached. Real-time updates disabled.')
+      }
+      return
+    }
+
     setTimeout(() => {
       if (this.shouldReconnect) {
         // Reconnect with last event ID to replay missed events
-        this.connect(this.lastEventId || undefined).catch(console.error)
+        this.connect(this.lastEventId || undefined).catch(() => {
+          // Silently handle reconnection failures - WebSocket is optional
+        })
       }
     }, delay)
   }
@@ -143,8 +203,14 @@ export function getWebSocketUrl(
   channel: 'customer' | 'restaurant' | 'delivery' | 'admin' | 'chat',
   id?: number
 ): string {
-  const baseUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws'
+  // Check if WebSocket is disabled via environment variable
+  const wsEnabled = (import.meta as any).env.VITE_WS_ENABLED !== 'false'
+  if (!wsEnabled) {
+    throw new Error('WebSocket is disabled')
+  }
   
+  const baseUrl = (import.meta as any).env.VITE_WS_URL || 'ws://localhost:8000/ws'
+
   switch (channel) {
     case 'customer':
       return `${baseUrl}/customer/${id}`

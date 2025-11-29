@@ -95,7 +95,17 @@ export const useAuthStore = create<AuthState>()(
             role: 'CUSTOMER',
           })
           
-          const { user, tokens } = response.data
+          // Handle response format - could be { user, tokens } or direct user object
+          const user = response.data.user || response.data
+          const tokens = response.data.tokens || { 
+            access: response.data.access, 
+            refresh: response.data.refresh 
+          }
+          
+          if (!tokens.access || !tokens.refresh) {
+            throw new Error('Invalid response from server. Tokens not received.')
+          }
+          
           apiClient.setAuthToken(tokens.access)
           apiClient.setRefreshToken(tokens.refresh)
           
@@ -107,11 +117,17 @@ export const useAuthStore = create<AuthState>()(
             isGuest: false,
           })
         } catch (error: any) {
+          // Clear any partial auth state on error
+          apiClient.clearAuth()
+          
           const errorMessage = error.response?.data?.email?.[0] ||
                               error.response?.data?.password?.[0] ||
+                              error.response?.data?.password_confirm?.[0] ||
                               error.response?.data?.non_field_errors?.[0] ||
                               error.response?.data?.error ||
-                              Object.values(error.response?.data || {}).flat()[0] ||
+                              error.response?.data?.detail ||
+                              (typeof error.response?.data === 'string' ? error.response.data : null) ||
+                              error.message ||
                               'Signup failed. Please check your information.'
           throw new Error(errorMessage)
         }

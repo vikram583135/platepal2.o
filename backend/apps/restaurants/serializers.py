@@ -266,23 +266,33 @@ class MenuItemSerializer(serializers.ModelSerializer):
 class MenuCategorySerializer(serializers.ModelSerializer):
     """Menu category serializer"""
 
-    items = MenuItemSerializer(many=True, read_only=True)
+    items = serializers.SerializerMethodField()
 
     class Meta:
         model = MenuCategory
         fields = ('id', 'name', 'description', 'display_order', 'is_active', 'items')
         read_only_fields = ('id',)
+    
+    def get_items(self, obj):
+        # Filter out deleted and unavailable items
+        items = obj.items.filter(is_deleted=False, is_available=True)
+        return MenuItemSerializer(items, many=True).data
 
 
 class MenuSerializer(serializers.ModelSerializer):
     """Menu serializer"""
 
-    categories = MenuCategorySerializer(many=True, read_only=True)
+    categories = serializers.SerializerMethodField()
 
     class Meta:
         model = Menu
         fields = ('id', 'name', 'description', 'is_active', 'available_from', 'available_until', 'categories')
         read_only_fields = ('id',)
+    
+    def get_categories(self, obj):
+        # Filter out deleted and inactive categories
+        categories = obj.categories.filter(is_deleted=False, is_active=True).order_by('display_order')
+        return MenuCategorySerializer(categories, many=True).data
 
 
 class RestaurantSettingsSerializer(serializers.ModelSerializer):

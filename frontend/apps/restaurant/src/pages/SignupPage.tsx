@@ -154,7 +154,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 py-16 px-4">
+    <div className="min-h-screen flex items-center justify-center page-background py-16 px-4">
       <Card className="w-full max-w-3xl shadow-xl border border-white/70 bg-white/90 backdrop-blur">
         <CardHeader>
           <CardTitle className="text-3xl font-semibold text-primary-600 text-center">Restaurant Onboarding</CardTitle>

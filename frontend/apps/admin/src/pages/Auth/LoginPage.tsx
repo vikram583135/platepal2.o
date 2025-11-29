@@ -43,11 +43,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Admin Login</CardTitle>
-          <CardDescription>Sign in to access the admin panel</CardDescription>
+    <div className="min-h-screen flex items-center justify-center admin-page-background px-4">
+      <Card className="w-full max-w-md admin-card border-indigo-200">
+        <CardHeader className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-t-lg">
+          <CardTitle className="text-white">Admin Login</CardTitle>
+          <CardDescription className="text-white/90">Sign in to access the admin panel</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -67,7 +67,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -81,7 +81,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -98,7 +98,7 @@ export default function LoginPage() {
                   required
                   placeholder="000000"
                   maxLength={6}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
             )}
@@ -106,7 +106,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loginMutation.isPending}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full admin-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loginMutation.isPending ? 'Signing in...' : 'Sign In'}
             </button>

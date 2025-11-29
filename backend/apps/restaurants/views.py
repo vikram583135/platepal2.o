@@ -1081,21 +1081,72 @@ class PromotionViewSet(viewsets.ModelViewSet):
         
         # Filter by payment method for bank/UPI offers
         if payment_method:
+            from django.db.models import Q
             if payment_method in ['CARD', 'NET_BANKING']:
-                # Show bank offers
+                # Show bank offers and general/restaurant offers
                 bank_offers = queryset.filter(offer_type=Promotion.OfferType.BANK)
+                general_offers = queryset.filter(
+                    Q(offer_type=Promotion.OfferType.RESTAURANT) | 
+                    Q(offer_type=Promotion.OfferType.PLATFORM)
+                )
+                queryset = (bank_offers | general_offers).distinct()
                 if payment_method == 'NET_BANKING':
                     # Filter by applicable banks (mock - in production, get from payment gateway)
                     pass
             elif payment_method == 'UPI':
-                # Show UPI offers
-                queryset = queryset.filter(offer_type=Promotion.OfferType.UPI)
+                # Show UPI offers and general/restaurant offers
+                upi_offers = queryset.filter(offer_type=Promotion.OfferType.UPI)
+                general_offers = queryset.filter(
+                    Q(offer_type=Promotion.OfferType.RESTAURANT) | 
+                    Q(offer_type=Promotion.OfferType.PLATFORM)
+                )
+                queryset = (upi_offers | general_offers).distinct()
         
         # Order by priority
         queryset = queryset.order_by('-priority', '-created_at')
         
         serializer = PromotionSerializer(queryset[:20], many=True, context={'request': request})
         return Response({'offers': serializer.data})
+    
+    @action(detail=True, methods=['get'])
+    def analytics(self, request, pk=None):
+        """Get ROI analytics for a promotion"""
+        promotion = self.get_object()
+        
+        # Get orders using this promotion
+        from apps.orders.models import Order
+        from django.db.models import Sum, Avg, Count
+        
+        orders = Order.objects.filter(
+            promotion=promotion,
+            status=Order.Status.DELIVERED,
+            is_deleted=False
+        )
+        
+        total_orders = orders.count()
+        total_revenue = orders.aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+        total_discount = orders.aggregate(Sum('discount_amount'))['discount_amount__sum'] or 0
+        avg_order_value = orders.aggregate(Avg('total_amount'))['total_amount__avg'] or 0
+        
+        # Calculate ROI
+        roi = 0
+        if total_discount > 0:
+            # ROI = (Revenue - Discount) / Discount
+            roi = float((total_revenue - total_discount) / total_discount)
+        
+        return Response({
+            'promotion_id': promotion.id,
+            'promotion_name': promotion.name,
+            'promotion_code': promotion.code,
+            'total_orders': total_orders,
+            'total_revenue': float(total_revenue),
+            'total_discount': float(total_discount),
+            'roi': round(roi, 2),
+            'average_order_value': float(avg_order_value),
+            'uses_count': promotion.uses_count,
+            'max_uses': promotion.max_uses,
+            'usage_percentage': round((promotion.uses_count / promotion.max_uses * 100), 2) if promotion.max_uses else 0,
+        })
 
 
 @api_view(['POST'])

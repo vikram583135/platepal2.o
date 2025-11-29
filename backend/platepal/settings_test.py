@@ -73,7 +73,7 @@ class DisableMigrations:
     def __getitem__(self, item):
         return None
 
-# MIGRATION_MODULES = DisableMigrations()
+MIGRATION_MODULES = {}
 
 # Disable password hashing for faster tests
 PASSWORD_HASHERS = [

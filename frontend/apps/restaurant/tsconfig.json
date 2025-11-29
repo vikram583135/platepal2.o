@@ -1,0 +1,19 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "composite": true,
+        "types": [
+            "vite/client"
+        ]
+    },
+    "include": [
+        "src",
+        "../../packages"
+    ],
+    "exclude": [
+        "**/node_modules",
+        "../customer",
+        "../admin",
+        "../delivery"
+    ]
+}

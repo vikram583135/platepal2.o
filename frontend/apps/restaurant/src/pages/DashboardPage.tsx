@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 import apiClient from '@/packages/api/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/packages/ui/components/card'
 import { Button } from '@/packages/ui/components/button'
@@ -49,7 +50,7 @@ export default function DashboardPage() {
       if (!selectedRestaurantId) {
         throw new Error('No restaurant selected')
       }
-      
+
       // Validate that restaurant exists in user's restaurants list
       const restaurantExists = restaurants.some((r: any) => r.id === selectedRestaurantId)
       if (!restaurantExists && restaurants.length > 0) {
@@ -67,7 +68,7 @@ export default function DashboardPage() {
         }
         throw new Error('No valid restaurant available')
       }
-      
+
       const response = await apiClient.get('/restaurants/dashboard/overview/', {
         params: { restaurant_id: selectedRestaurantId },
       })
@@ -81,9 +82,13 @@ export default function DashboardPage() {
     refetchOnReconnect: true,
     retry: 1,
     retryDelay: 2000,
-    onError: (err: any) => {
-      console.error('Dashboard query error:', err)
+  })
+
+  useEffect(() => {
+    if (error) {
+      console.error('Dashboard query error:', error)
       // If 404 or 403 error, automatically select a valid restaurant
+      const err = error as any
       if ((err?.response?.status === 404 || err?.response?.status === 403) && restaurants.length > 0) {
         const errorData = err.response?.data
         const errorMessage = errorData?.error || errorData?.details?.detail || ''
@@ -96,8 +101,8 @@ export default function DashboardPage() {
           }
         }
       }
-    },
-  })
+    }
+  }, [error, restaurants, setSelectedRestaurant])
 
   const { data: alerts, error: alertsError } = useQuery({
     queryKey: ['restaurant-alerts', selectedRestaurantId],
@@ -170,7 +175,7 @@ export default function DashboardPage() {
     // If we have restaurants but none selected, show loading (auto-selection should happen soon)
     if (restaurants.length > 0) {
       return (
-        <div className="flex items-center justify-center min-h-screen bg-zomato-lightGray">
+        <div className="flex items-center justify-center min-h-screen page-background">
           <div className="text-center">
             <div className="animate-spin h-8 w-8 rounded-full border-2 border-zomato-red border-t-transparent mx-auto mb-4"></div>
             <p className="text-zomato-gray">Loading your restaurant dashboard...</p>
@@ -212,12 +217,12 @@ export default function DashboardPage() {
     const errorMessage = errorData?.error || errorData?.details?.detail || (error instanceof Error ? error.message : 'An unexpected error occurred')
     const is404 = errorResponse?.status === 404
     const is403 = errorResponse?.status === 403
-    
+
     // If it's a 404/403 and we have restaurants, the error handler should have already tried to auto-select
     // Show a more user-friendly message
     if ((is404 || is403) && restaurants.length > 0) {
       return (
-        <div className="flex items-center justify-center min-h-screen bg-zomato-lightGray">
+        <div className="flex items-center justify-center min-h-screen page-background">
           <div className="text-center max-w-md">
             <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
             <p className="text-yellow-600 mb-2 font-semibold">Loading your restaurant dashboard...</p>
@@ -229,7 +234,7 @@ export default function DashboardPage() {
         </div>
       )
     }
-    
+
     return (
       <div className="flex items-center justify-center min-h-screen bg-zomato-lightGray">
         <div className="text-center max-w-md">
@@ -274,7 +279,7 @@ export default function DashboardPage() {
   const onlineStatus = metrics?.restaurant?.is_online ?? false
 
   return (
-    <div className="min-h-screen bg-zomato-lightGray">
+    <div className="min-h-screen page-background">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -295,8 +300,8 @@ export default function DashboardPage() {
                 disabled={toggleOnlineMutation.isPending}
                 className={`${onlineStatus ? 'bg-green-600 hover:bg-green-700' : 'bg-zomato-red hover:bg-zomato-darkRed'} text-white`}
               >
-                {toggleOnlineMutation.isPending 
-                  ? 'Updating...' 
+                {toggleOnlineMutation.isPending
+                  ? 'Updating...'
                   : (onlineStatus ? 'Go Offline' : 'Go Online')}
               </Button>
             </div>
@@ -342,8 +347,8 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-zomato-dark">
-                {metrics?.ratings?.current_rating 
-                  ? Number(metrics.ratings.current_rating).toFixed(1) 
+                {metrics?.ratings?.current_rating
+                  ? Number(metrics.ratings.current_rating).toFixed(1)
                   : '0.0'}
               </div>
               <p className="text-xs text-zomato-gray mt-1">
@@ -379,21 +384,20 @@ export default function DashboardPage() {
                     metrics.orders.latest.map((order: any) => (
                       <div
                         key={order.id}
-                        className="flex items-center justify-between p-3 bg-zomato-lightGray rounded-lg hover:bg-gray-100 transition-colors"
+                        className="flex items-center justify-between p-3 bg-red-50 rounded-lg hover:bg-red-100 transition-colors border border-red-100"
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-zomato-dark">#{order.order_number}</span>
                             <span
-                              className={`px-2 py-1 text-xs rounded-full ${
-                                order.status === 'PENDING'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : order.status === 'PREPARING'
+                              className={`px-2 py-1 text-xs rounded-full ${order.status === 'PENDING'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : order.status === 'PREPARING'
                                   ? 'bg-blue-100 text-blue-800'
                                   : order.status === 'READY'
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}
                             >
                               {order.status}
                             </span>
@@ -404,11 +408,11 @@ export default function DashboardPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-xs text-zomato-gray">
-                            {order.created_at 
+                            {order.created_at
                               ? new Date(order.created_at).toLocaleTimeString('en-IN', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
                               : 'N/A'}
                           </p>
                         </div>
@@ -441,13 +445,12 @@ export default function DashboardPage() {
                     metrics.alerts.latest.map((alert: any) => (
                       <div
                         key={alert.id}
-                        className={`p-3 rounded-lg border-l-4 ${
-                          alert.severity === 'CRITICAL'
-                            ? 'bg-red-50 border-red-500'
-                            : alert.severity === 'WARNING'
+                        className={`p-3 rounded-lg border-l-4 ${alert.severity === 'CRITICAL'
+                          ? 'bg-red-50 border-red-500'
+                          : alert.severity === 'WARNING'
                             ? 'bg-yellow-50 border-yellow-500'
                             : 'bg-blue-50 border-blue-500'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start gap-2">
                           {alert.severity === 'CRITICAL' ? (

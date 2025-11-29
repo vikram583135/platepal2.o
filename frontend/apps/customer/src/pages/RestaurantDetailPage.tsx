@@ -34,15 +34,15 @@ export default function RestaurantDetailPage() {
         const cached = RestaurantCache.get(Number(id))
         if (cached) return cached
       }
-      
+
       const response = await apiClient.get(`/restaurants/restaurants/${id}/`)
       const data = response.data
-      
+
       // Cache the restaurant data
       if (id) {
         RestaurantCache.set(Number(id), data)
       }
-      
+
       return data
     },
   })
@@ -55,15 +55,15 @@ export default function RestaurantDetailPage() {
         const cached = MenuCache.get(Number(id))
         if (cached) return cached
       }
-      
+
       const response = await apiClient.get(`/restaurants/restaurants/${id}/menu/`)
       const data = response.data
-      
+
       // Cache the menu data
       if (id) {
         MenuCache.set(Number(id), data)
       }
-      
+
       return data
     },
     enabled: !!id,
@@ -131,10 +131,10 @@ export default function RestaurantDetailPage() {
 
   const formatOpeningHours = (hours: any) => {
     if (!hours || typeof hours !== 'object') return 'Hours not available'
-    
+
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long' })
-    
+
     return days.map(day => {
       const dayLower = day.toLowerCase()
       const dayHours = hours[dayLower]
@@ -405,67 +405,77 @@ export default function RestaurantDetailPage() {
           {menu && (
             <div className="space-y-8">
               {Array.isArray(menu) && menu.length > 0 ? (
-                menu.map((category: any) => (
-                  <div key={category.id} className="mb-8">
-                    <h2 className="text-2xl font-semibold mb-4">{category.name}</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {category.items?.map((item: any) => {
-                        const itemImage = item.image || item.image_url
-                        return (
-                        <Card key={item.id}>
-                          <CardContent className="p-4">
-                            <div className="flex gap-4">
-                              {itemImage && (
-                                <img
-                                  src={itemImage}
-                                  alt={item.name}
-                                  className="w-24 h-24 object-cover rounded"
-                                />
-                              )}
-                              <div className="flex-1">
-                                <div className="flex items-start justify-between mb-1">
-                                  <h3 className="font-semibold">{item.name}</h3>
-                                  <div className="flex gap-1">
-                                    {item.is_vegetarian && (
-                                      <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
-                                        Veg
-                                      </Badge>
+                menu.map((menuItem: any) => (
+                  <div key={menuItem.id} className="mb-8">
+                    {/* Show menu name if there are multiple menus */}
+                    {menu.length > 1 && (
+                      <h2 className="text-2xl font-bold mb-6 pb-2 border-b">{menuItem.name}</h2>
+                    )}
+
+                    {menuItem.categories?.map((category: any) => (
+                      <div key={category.id} className="mb-8">
+                        <h3 className="text-xl font-semibold mb-4">{category.name}</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {category.items?.map((item: any) => {
+                            const itemImage = item.image || item.image_url
+                            return (
+                              <Card key={item.id}>
+                                <CardContent className="p-4">
+                                  <div className="flex gap-4">
+                                    {itemImage && (
+                                      <img
+                                        src={itemImage}
+                                        alt={item.name}
+                                        className="w-24 h-24 object-cover rounded"
+                                      />
                                     )}
-                                    {item.is_vegan && (
-                                      <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
-                                        Vegan
-                                      </Badge>
-                                    )}
-                                    {item.is_spicy && (
-                                      <Badge variant="outline" className="bg-red-50 text-red-700 text-xs">
-                                        Spicy
-                                      </Badge>
-                                    )}
+                                    <div className="flex-1">
+                                      <div className="flex items-start justify-between mb-1">
+                                        <h3 className="font-semibold">{item.name}</h3>
+                                        <div className="flex gap-1">
+                                          {item.is_vegetarian && (
+                                            <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
+                                              Veg
+                                            </Badge>
+                                          )}
+                                          {item.is_vegan && (
+                                            <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
+                                              Vegan
+                                            </Badge>
+                                          )}
+                                          {item.is_spicy && (
+                                            <Badge variant="outline" className="bg-red-50 text-red-700 text-xs">
+                                              Spicy
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                                      {item.calories && (
+                                        <div className="text-xs text-gray-500 mb-2">{item.calories} calories</div>
+                                      )}
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-semibold">
+                                          {formatCurrency(item.price, 'INR')}
+                                        </span>
+                                        <Button
+                                          size="sm"
+                                          onClick={() => handleItemClick(item)}
+                                          disabled={!item.is_available}
+                                        >
+                                          <ShoppingCart className="w-4 h-4 mr-1" />
+                                          {item.is_available ? 'Add' : 'Sold Out'}
+                                        </Button>
+                                      </div>
+                                    </div>
                                   </div>
-                                </div>
-                                <p className="text-sm text-gray-600 mb-2">{item.description}</p>
-                                {item.calories && (
-                                  <div className="text-xs text-gray-500 mb-2">{item.calories} calories</div>
-                                )}
-                                <div className="flex items-center justify-between">
-                                  <span className="font-semibold">
-                                    {formatCurrency(item.price, 'INR')}
-                                  </span>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleItemClick(item)}
-                                    disabled={!item.is_available}
-                                  >
-                                    <ShoppingCart className="w-4 h-4 mr-1" />
-                                    {item.is_available ? 'View Details' : 'Sold Out'}
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )})}
-                    </div>
+                                </CardContent>
+                              </Card>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 ))
               ) : menu.categories ? (
@@ -476,59 +486,60 @@ export default function RestaurantDetailPage() {
                       {category.items?.map((item: any) => {
                         const itemImage = item.image || item.image_url
                         return (
-                        <Card key={item.id}>
-                          <CardContent className="p-4">
-                            <div className="flex gap-4">
-                              {itemImage && (
-                                <img
-                                  src={itemImage}
-                                  alt={item.name}
-                                  className="w-24 h-24 object-cover rounded"
-                                />
-                              )}
-                              <div className="flex-1">
-                                <div className="flex items-start justify-between mb-1">
-                                  <h3 className="font-semibold">{item.name}</h3>
-                                  <div className="flex gap-1">
-                                    {item.is_vegetarian && (
-                                      <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
-                                        Veg
-                                      </Badge>
-                                    )}
-                                    {item.is_vegan && (
-                                      <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
-                                        Vegan
-                                      </Badge>
-                                    )}
-                                    {item.is_spicy && (
-                                      <Badge variant="outline" className="bg-red-50 text-red-700 text-xs">
-                                        Spicy
-                                      </Badge>
-                                    )}
+                          <Card key={item.id}>
+                            <CardContent className="p-4">
+                              <div className="flex gap-4">
+                                {itemImage && (
+                                  <img
+                                    src={itemImage}
+                                    alt={item.name}
+                                    className="w-24 h-24 object-cover rounded"
+                                  />
+                                )}
+                                <div className="flex-1">
+                                  <div className="flex items-start justify-between mb-1">
+                                    <h3 className="font-semibold">{item.name}</h3>
+                                    <div className="flex gap-1">
+                                      {item.is_vegetarian && (
+                                        <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
+                                          Veg
+                                        </Badge>
+                                      )}
+                                      {item.is_vegan && (
+                                        <Badge variant="outline" className="bg-green-50 text-green-700 text-xs">
+                                          Vegan
+                                        </Badge>
+                                      )}
+                                      {item.is_spicy && (
+                                        <Badge variant="outline" className="bg-red-50 text-red-700 text-xs">
+                                          Spicy
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                                  {item.calories && (
+                                    <div className="text-xs text-gray-500 mb-2">{item.calories} calories</div>
+                                  )}
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-semibold">
+                                      {formatCurrency(item.price, 'INR')}
+                                    </span>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleItemClick(item)}
+                                      disabled={!item.is_available}
+                                    >
+                                      <ShoppingCart className="w-4 h-4 mr-1" />
+                                      {item.is_available ? 'View Details' : 'Sold Out'}
+                                    </Button>
                                   </div>
                                 </div>
-                                <p className="text-sm text-gray-600 mb-2">{item.description}</p>
-                                {item.calories && (
-                                  <div className="text-xs text-gray-500 mb-2">{item.calories} calories</div>
-                                )}
-                                <div className="flex items-center justify-between">
-                                  <span className="font-semibold">
-                                    {formatCurrency(item.price, 'INR')}
-                                  </span>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleItemClick(item)}
-                                    disabled={!item.is_available}
-                                  >
-                                    <ShoppingCart className="w-4 h-4 mr-1" />
-                                    {item.is_available ? 'View Details' : 'Sold Out'}
-                                  </Button>
-                                </div>
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )})}
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
                     </div>
                   </div>
                 ))

@@ -44,16 +44,19 @@ export function DataTable<T extends Record<string, any>>({
 
   const sortedData = useMemo(() => {
     if (!sortColumn) return data
-    
+
     return [...data].sort((a, b) => {
       const column = columns.find(col => col.key === sortColumn)
       if (!column || !column.accessor) return 0
-      
+
       const aVal = column.accessor(a)
       const bVal = column.accessor(b)
-      
+
       if (aVal === bVal) return 0
-      const comparison = aVal > bVal ? 1 : -1
+      if (aVal === null || aVal === undefined) return 1
+      if (bVal === null || bVal === undefined) return -1
+
+      const comparison = (aVal as any) > (bVal as any) ? 1 : -1
       return sortDirection === 'asc' ? comparison : -comparison
     })
   }, [data, sortColumn, sortDirection, columns])
@@ -68,7 +71,7 @@ export function DataTable<T extends Record<string, any>>({
   const handleSort = (columnKey: string) => {
     const column = columns.find(col => col.key === columnKey)
     if (!column?.sortable) return
-    
+
     if (sortColumn === columnKey) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
     } else {

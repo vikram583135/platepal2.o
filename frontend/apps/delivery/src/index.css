@@ -10,6 +10,14 @@
     @apply bg-gray-50 text-gray-900;
   }
   
+  :root {
+    --delivery-primary: #10B981;
+    --delivery-secondary: #14B8A6;
+    --delivery-accent: #84CC16;
+    --delivery-dark: #059669;
+    --delivery-light: #34D399;
+  }
+  
   /* Large tap targets for accessibility */
   button,
   a,
@@ -49,7 +57,7 @@
   
   /* Focus visible for keyboard navigation */
   *:focus-visible {
-    @apply outline-2 outline-green-600 outline-offset-2;
+    @apply outline-2 outline-emerald-600 outline-offset-2;
   }
   
   /* Screen reader only */
@@ -81,7 +89,42 @@
   
   /* Accessibility skip link */
   .skip-link {
-    @apply sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50 focus:p-4 focus:bg-green-600 focus:text-white;
+    @apply sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50 focus:p-4 focus:bg-emerald-600 focus:text-white;
+  }
+  
+  .delivery-page-background {
+    @apply relative min-h-screen;
+  }
+  
+  .delivery-page-background::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -10;
+    background-image: linear-gradient(to bottom, rgba(16, 185, 129, 0.08), rgba(5, 150, 105, 0.04));
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+  
+  .delivery-page-background-overlay {
+    @apply absolute inset-0 -z-10 bg-gradient-to-b from-black/15 via-black/5 to-black/15;
+  }
+  
+  .delivery-page-content {
+    @apply relative z-10;
+  }
+  
+  .delivery-card {
+    @apply bg-white rounded-lg shadow-md border border-emerald-100 hover:shadow-lg transition-shadow;
+  }
+  
+  .delivery-button-primary {
+    @apply bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all;
+  }
+  
+  .delivery-nav-active {
+    @apply bg-gradient-to-r from-emerald-50 to-emerald-100 text-emerald-700 font-medium border-l-4 border-emerald-600;
   }
 }
 

@@ -143,7 +143,7 @@ export default function CommunicationsPage() {
   const activeRoom = rooms.find((r: any) => r.id === activeRoomId)
 
   return (
-    <div className="min-h-screen bg-zomato-lightGray p-6">
+    <div className="min-h-screen page-background p-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-zomato-dark">Communications Center</h1>
         <p className="text-zomato-gray mt-1">Handle customer & rider chats, send predefined messages</p>
@@ -233,7 +233,7 @@ export default function CommunicationsPage() {
           </CardHeader>
           <CardContent>
             {showPredefined && (
-              <div className="mb-4 p-4 bg-zomato-lightGray rounded-lg">
+              <div className="mb-4 p-4 bg-red-50 rounded-lg border border-red-100">
                 <p className="text-xs font-semibold uppercase tracking-wide text-zomato-gray mb-2">
                   Predefined Messages
                 </p>
@@ -256,11 +256,11 @@ export default function CommunicationsPage() {
             <div className="space-y-3 max-h-[calc(100vh-400px)] overflow-y-auto mb-4">
               {messages.length > 0 ? (
                 messages.map((msg: any, idx: number) => {
-                  const isMine = msg.sender_email === queryClient.getQueryData(['auth-user'])?.email || msg.is_mine
+                  const isMine = msg.sender_email === (queryClient.getQueryData(['auth-user']) as any)?.email || msg.is_mine
                   const showDate =
                     idx === 0 ||
                     new Date(msg.created_at).toDateString() !==
-                      new Date(messages[idx - 1].created_at).toDateString()
+                    new Date(messages[idx - 1].created_at).toDateString()
 
                   return (
                     <div key={msg.id}>
@@ -301,14 +301,14 @@ export default function CommunicationsPage() {
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyPress={(e) => {
                     if (e.key === 'Enter' && message.trim()) {
-                      sendMessage.mutate()
+                      sendMessage.mutate(undefined)
                     }
                   }}
                   className="flex-1"
                 />
                 <Button
                   disabled={!message.trim() || sendMessage.isPending}
-                  onClick={() => sendMessage.mutate()}
+                  onClick={() => sendMessage.mutate(undefined)}
                   className="bg-zomato-red hover:bg-zomato-darkRed text-white"
                 >
                   {sendMessage.isPending ? 'Sending...' : 'Send'}

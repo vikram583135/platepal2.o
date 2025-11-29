@@ -9,5 +9,50 @@
   body {
     @apply bg-gray-50 text-gray-900;
   }
+  
+  :root {
+    --admin-primary: #4F46E5;
+    --admin-secondary: #8B5CF6;
+    --admin-accent: #06B6D4;
+    --admin-dark: #312E81;
+    --admin-light: #818CF8;
+  }
+}
+
+@layer components {
+  .admin-page-background {
+    @apply relative min-h-screen;
+  }
+  
+  .admin-page-background::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -10;
+    background-image: linear-gradient(to bottom, rgba(79, 70, 229, 0.08), rgba(49, 46, 129, 0.04));
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+  
+  .admin-page-background-overlay {
+    @apply absolute inset-0 -z-10 bg-gradient-to-b from-black/20 via-black/10 to-black/20;
+  }
+  
+  .admin-page-content {
+    @apply relative z-10;
+  }
+  
+  .admin-card {
+    @apply bg-white rounded-lg shadow-md border border-indigo-100 hover:shadow-lg transition-shadow;
+  }
+  
+  .admin-button-primary {
+    @apply bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all;
+  }
+  
+  .admin-nav-active {
+    @apply bg-gradient-to-r from-indigo-50 to-indigo-100 text-indigo-700 font-medium border-l-4 border-indigo-600;
+  }
 }
 

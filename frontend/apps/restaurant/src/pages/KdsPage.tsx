@@ -119,9 +119,9 @@ export default function KDSPage() {
 
   // Audio alert for new orders
   useEffect(() => {
-    if (board?.new?.length > 0) {
+    if (board?.new && board.new.length > 0) {
       const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZkDkI')
-      audio.play().catch(() => {}) // Ignore errors
+      audio.play().catch(() => { }) // Ignore errors
     }
   }, [board?.new?.length])
 
@@ -160,7 +160,7 @@ export default function KDSPage() {
   const currentOrders = board?.[view] || []
 
   return (
-    <div className={`min-h-screen bg-zomato-lightGray ${fullscreen ? 'fixed inset-0 z-50' : ''}`}>
+    <div className={`min-h-screen page-background ${fullscreen ? 'fixed inset-0 z-50' : ''}`}>
       {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -175,11 +175,10 @@ export default function KDSPage() {
                   <Button
                     key={v}
                     onClick={() => setView(v)}
-                    className={`${
-                      view === v
+                    className={`${view === v
                         ? 'bg-zomato-red text-white'
-                        : 'bg-white text-zomato-gray hover:bg-zomato-lightGray'
-                    }`}
+                        : 'bg-white text-zomato-gray hover:bg-red-50'
+                      }`}
                   >
                     {v.charAt(0).toUpperCase() + v.slice(1)} ({board?.[v]?.length || 0})
                   </Button>
@@ -213,9 +212,8 @@ export default function KDSPage() {
             return (
               <Card
                 key={order.id}
-                className={`bg-white ${
-                  isUrgent ? 'border-l-4 border-l-red-500 bg-red-50' : ''
-                }`}
+                className={`bg-white ${isUrgent ? 'border-l-4 border-l-red-500 bg-red-50' : ''
+                  }`}
               >
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
@@ -244,7 +242,7 @@ export default function KDSPage() {
                     {order.items?.map((item: any) => (
                       <div
                         key={item.id}
-                        className="p-3 bg-zomato-lightGray rounded-lg border-l-4 border-l-zomato-red"
+                        className="p-3 bg-red-50 rounded-lg border-l-4 border-l-zomato-red"
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
