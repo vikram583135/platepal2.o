@@ -7,7 +7,7 @@ __pycache__/
 venv/
 env/
 ENV/
-.venv
+.venv/
 *.egg-info/
 dist/
 build/
@@ -37,6 +37,7 @@ build/
 # IDE
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 *~
@@ -49,12 +50,22 @@ Thumbs.db
 .coverage
 .pytest_cache/
 htmlcov/
+playwright-report/
+test-results/
+
+# Test/Lint Reports
+**/lint_report*.txt
+**/test_report*.txt
+**/type_errors.txt
+**/type_report.txt
+
+# TypeScript
+*.tsbuildinfo
 
 # Misc
 *.bak
 *.tmp
 
-
-
+# Project specific
 .github/instructions/kluster-code-verify.instructions.md
 .kluster

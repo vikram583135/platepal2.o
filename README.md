@@ -210,7 +210,115 @@ Once the backend is running, visit:
 - `VITE_API_BASE_URL`: Backend API URL
 - `VITE_WS_URL`: WebSocket URL
 
+## Contributing
+
+We welcome contributions from the community! Here's how you can help:
+
+### Getting Started
+
+1. **Fork the repository** on GitHub
+2. **Clone your fork** locally:
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/platepal.git
+   cd platepal
+   ```
+3. **Create a branch** for your feature or fix:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+### Making Changes
+
+1. Follow the [Setup Instructions](#setup-instructions) to get the project running
+2. Make your changes following our coding standards:
+   - **Backend**: Follow PEP 8 style guide for Python
+   - **Frontend**: Use TypeScript, follow ESLint rules
+3. Write or update tests as needed
+4. Ensure all tests pass before submitting
+
+### Submitting Changes
+
+1. **Commit your changes** with clear, descriptive messages:
+   ```bash
+   git commit -m "feat: add new feature description"
+   ```
+   We follow [Conventional Commits](https://www.conventionalcommits.org/) format.
+
+2. **Push to your fork**:
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+3. **Open a Pull Request** against the `main` branch
+
+### Pull Request Guidelines
+
+- Provide a clear description of the changes
+- Reference any related issues using `#issue-number`
+- Ensure CI checks pass
+- Be responsive to feedback and review comments
+
+### Types of Contributions
+
+We appreciate all kinds of contributions:
+
+- 🐛 **Bug Reports**: Found a bug? [Open an issue](../../issues/new)
+- ✨ **Feature Requests**: Have an idea? [Start a discussion](../../discussions)
+- 📖 **Documentation**: Help improve our docs
+- 🧪 **Testing**: Add or improve tests
+- 💻 **Code**: Fix bugs or implement features
+
+---
+
+## Code of Conduct
+
+### Our Pledge
+
+We are committed to providing a welcoming and inclusive environment for everyone. We pledge to make participation in our project a harassment-free experience regardless of age, body size, disability, ethnicity, gender identity, level of experience, nationality, personal appearance, race, religion, or sexual identity and orientation.
+
+### Expected Behavior
+
+- Use welcoming and inclusive language
+- Be respectful of differing viewpoints and experiences
+- Accept constructive criticism gracefully
+- Focus on what is best for the community
+- Show empathy towards other community members
+
+### Unacceptable Behavior
+
+- Harassment, trolling, or discriminatory comments
+- Personal or political attacks
+- Publishing others' private information without consent
+- Any conduct inappropriate in a professional setting
+
+### Enforcement
+
+Violations may be reported to the project maintainers. All reports will be reviewed and addressed appropriately.
+
+---
+
+## Getting Help
+
+Need help? Here's how to get support:
+
+- 📚 **Documentation**: Check our [docs](./docs) folder for guides
+- 💬 **Discussions**: Ask questions in [GitHub Discussions](../../discussions)
+- 🐛 **Bug Reports**: [Open an issue](../../issues/new) for bugs
+- 📧 **Email**: Contact maintainers for private concerns
+
+---
+
+## Acknowledgements
+
+- Built with [Django](https://djangoproject.com/) and [React](https://react.dev/)
+- UI styled with [TailwindCSS](https://tailwindcss.com/)
+- Maps powered by [Leaflet](https://leafletjs.com/)
+- Icons from [Heroicons](https://heroicons.com/)
+
+Special thanks to all contributors who help make PlatePal better!
+
+---
+
 ## License
 
-MIT
-
+MIT License - see [LICENSE](./LICENSE) for details.
