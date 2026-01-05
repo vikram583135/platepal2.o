@@ -1,0 +1,151 @@
+name: Test PlatePal
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [develop]
+
+env:
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: platepal_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Run Django checks
+        working-directory: backend
+        env:
+          DEBUG: 'True'
+          DB_NAME: platepal_test
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_HOST: localhost
+          DB_PORT: 5432
+          SECRET_KEY: test-secret-key
+        run: |
+          python manage.py check
+
+      - name: Run migrations
+        working-directory: backend
+        env:
+          DEBUG: 'True'
+          DB_NAME: platepal_test
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_HOST: localhost
+          DB_PORT: 5432
+          SECRET_KEY: test-secret-key
+        run: |
+          python manage.py migrate --noinput
+      
+      - name: Run tests
+        working-directory: backend
+        env:
+          DEBUG: 'True'
+          DB_NAME: platepal_test
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_HOST: localhost
+          DB_PORT: 5432
+          SECRET_KEY: test-secret-key
+        run: |
+          pytest --tb=short -q
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      
+      - name: Type check
+        working-directory: frontend
+        run: npm run type-check || true
+      
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint || true
+      
+      - name: Build Customer App
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: http://localhost:8000/api
+          VITE_WS_URL: ws://localhost:8000/ws
+        run: npm run build:customer
+      
+      - name: Build Restaurant App
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: http://localhost:8000/api
+          VITE_WS_URL: ws://localhost:8000/ws
+        run: npm run build:restaurant
+      
+      - name: Build Admin App
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: http://localhost:8000/api
+          VITE_WS_URL: ws://localhost:8000/ws
+        run: npm run build:admin
+      
+      - name: Build Delivery App
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: http://localhost:8000/api
+          VITE_WS_URL: ws://localhost:8000/ws
+        run: npm run build:delivery
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install safety
+        run: pip install safety
+      
+      - name: Check for security vulnerabilities
+        working-directory: backend
+        run: safety check -r requirements.txt --continue-on-error || true

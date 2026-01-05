@@ -1,0 +1,4 @@
+web: gunicorn platepal.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --worker-class gthread --timeout 120
+worker: celery -A platepal worker --loglevel=info --concurrency=2
+channels: daphne -b 0.0.0.0 -p $PORT platepal.asgi:application
+release: python manage.py migrate --noinput && python manage.py collectstatic --noinput

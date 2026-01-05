@@ -8,6 +8,7 @@ from django.conf.urls.static import static
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework import permissions
+from apps.accounts.health import health_check, readiness_check, liveness_check
 
 schema_view = get_schema_view(
    openapi.Info(
@@ -23,6 +24,11 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
+    # Health check endpoints (must be before other routes)
+    path('api/health/', health_check, name='health_check'),
+    path('api/ready/', readiness_check, name='readiness_check'),
+    path('api/live/', liveness_check, name='liveness_check'),
+    
     path('admin/', admin.site.urls),
     path('api/auth/', include('apps.accounts.urls')),
     path('api/restaurants/', include('apps.restaurants.urls')),
@@ -45,4 +51,5 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
 

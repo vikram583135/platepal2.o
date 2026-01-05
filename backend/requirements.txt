@@ -1,17 +1,43 @@
+# Django Core
 Django==4.2.7
 djangorestframework==3.14.0
 django-cors-headers==4.3.1
 djangorestframework-simplejwt==5.3.0
+django-filter==23.5
+django-environ==0.11.2
+
+# Database
+psycopg2-binary>=2.9.10
+dj-database-url==2.1.0
+
+# Async & WebSockets
 channels==4.0.0
 channels-redis==4.1.0
-psycopg2-binary>=2.9.10
-django-environ==0.11.2
-Pillow>=10.2.0
+
+# Task Queue
 celery==5.3.4
 redis==5.0.1
+
+# Production Servers
+gunicorn==21.2.0
+daphne==4.0.0
+whitenoise==6.6.0
+
+# Media Storage (Cloudinary)
+cloudinary==1.36.0
+django-cloudinary-storage==0.3.0
+
+# Security & Monitoring
+sentry-sdk[django]==1.39.1
 django-ratelimit==4.1.0
-django-filter==23.5
+
+# File Processing
+Pillow>=10.2.0
+
+# API Documentation
 drf-yasg==1.21.7
+
+# Testing
 pytest==7.4.3
 pytest-django==4.7.0
 pytest-asyncio==0.21.1
